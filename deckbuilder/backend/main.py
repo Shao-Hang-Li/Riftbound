@@ -124,6 +124,13 @@ async def create_deck(deck: DeckModel):
         if len(deck.card_ids) > 40:
             return JSONResponse(status_code=400, content={"error": "Deck cannot exceed 40 cards"})
         
+        # Check for more than 3 copies of any card
+        card_counts = {}
+        for card_id in deck.card_ids:
+            card_counts[card_id] = card_counts.get(card_id, 0) + 1
+            if card_counts[card_id] > 3:
+                return JSONResponse(status_code=400, content={"error": f"Cannot have more than 3 copies of {card_id}"})
+        
         # Set timestamps
         deck.created_at = datetime.now()
         deck.updated_at = datetime.now()
@@ -183,18 +190,20 @@ async def add_card_to_deck(deck_id: str, card_id: str):
         if len(deck["card_ids"]) >= 40:
             return JSONResponse(status_code=400, content={"error": "Deck is full (40 cards)"})
         
-        # Add card if not already in deck
-        if card_id not in deck["card_ids"]:
-            await decks_collection.update_one(
-                {"_id": ObjectId(deck_id)},
-                {
-                    "$push": {"card_ids": card_id},
-                    "$set": {"updated_at": datetime.now()}
-                }
-            )
-            return {"message": "Card added to deck"}
-        else:
-            return {"message": "Card already in deck"}
+        # Check if adding this card would exceed 3 copies
+        current_count = deck["card_ids"].count(card_id)
+        if current_count >= 3:
+            return JSONResponse(status_code=400, content={"error": f"Cannot have more than 3 copies of {card_id}"})
+        
+        # Add card to deck
+        await decks_collection.update_one(
+            {"_id": ObjectId(deck_id)},
+            {
+                "$push": {"card_ids": card_id},
+                "$set": {"updated_at": datetime.now()}
+            }
+        )
+        return {"message": "Card added to deck"}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
