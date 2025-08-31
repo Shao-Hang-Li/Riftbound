@@ -185,14 +185,14 @@ const CardGallery: React.FC = () => {
       </div>
 
       {/* Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {filteredCards.map((card) => (
           <div key={card.card_id} className="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow cursor-pointer">
             <figure className="px-4 pt-4">
               <img
                 src={`http://localhost:8000/cards/${card.set_name}/${card.image_path}`}
                 alt={card.name}
-                className="rounded-xl w-full h-48 object-cover"
+                className="rounded-xl w-full h-auto object-contain"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.src = 'https://via.placeholder.com/300x400?text=Card+Image';
