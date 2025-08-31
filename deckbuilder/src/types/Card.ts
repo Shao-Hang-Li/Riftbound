@@ -24,6 +24,19 @@ export interface Card {
   updated_at?: string;
 }
 
+export interface Deck {
+  _id?: string;
+  name: string;
+  description?: string;
+  card_ids: string[];
+  deck_colors: CardColor[];
+  total_cost: number;
+  average_cost: number;
+  card_type_distribution: Record<CardType, number>;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export type CardType = 
   | "Spell"
   | "Unit"
@@ -49,19 +62,6 @@ export type CardRarity =
   | "Rare"
   | "Epic"
   | "Overnumbered";
-
-export interface Deck {
-  _id?: string;
-  name: string;
-  description?: string;
-  card_ids: string[];
-  deck_colors: CardColor[];
-  total_cost: number;
-  average_cost: number;
-  card_type_distribution: Record<CardType, number>;
-  created_at?: string;
-  updated_at?: string;
-}
 
 export interface SetInfo {
   _id?: string;

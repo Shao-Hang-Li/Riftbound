@@ -1,12 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Deck } from '../types/Card';
+import { Card, Deck, CardType, CardColor } from '../types/Card';
 
 const DeckBuilder: React.FC = () => {
   const [cards, setCards] = useState<Card[]>([]);
   const [deck, setDeck] = useState<Deck>({
     name: '',
     description: '',
-    card_ids: []
+    card_ids: [],
+    deck_colors: [],
+    total_cost: 0,
+    average_cost: 0,
+    card_type_distribution: {
+      Spell: 0,
+      Unit: 0,
+      Champion: 0,
+      Legend: 0,
+      Battlefield: 0,
+      Gear: 0,
+      Rune: 0,
+      Token: 0
+    }
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,6 +48,64 @@ const DeckBuilder: React.FC = () => {
 
     fetchCards();
   }, []);
+
+  // Calculate deck statistics
+  const calculateDeckStats = (cardIds: string[]): Partial<Deck> => {
+    const deckCards = cardIds.map(cardId => 
+      cards.find(card => card.card_id === cardId)
+    ).filter(Boolean) as Card[];
+
+    if (deckCards.length === 0) {
+      return {
+        deck_colors: [],
+        total_cost: 0,
+        average_cost: 0,
+        card_type_distribution: {
+          Spell: 0,
+          Unit: 0,
+          Champion: 0,
+          Legend: 0,
+          Battlefield: 0,
+          Gear: 0,
+          Rune: 0,
+          Token: 0
+        }
+      };
+    }
+
+    // Calculate colors
+    const allColors = deckCards.flatMap(card => card.color);
+    const uniqueColors = Array.from(new Set(allColors));
+
+    // Calculate costs
+    const totalCost = deckCards.reduce((sum, card) => sum + card.cost, 0);
+    const averageCost = totalCost / deckCards.length;
+
+    // Calculate type distribution
+    const typeDistribution = {
+      Spell: 0,
+      Unit: 0,
+      Champion: 0,
+      Legend: 0,
+      Battlefield: 0,
+      Gear: 0,
+      Rune: 0,
+      Token: 0
+    };
+
+    deckCards.forEach(card => {
+      if (typeDistribution.hasOwnProperty(card.card_type)) {
+        typeDistribution[card.card_type as CardType]++;
+      }
+    });
+
+    return {
+      deck_colors: uniqueColors,
+      total_cost: totalCost,
+      average_cost: Math.round(averageCost * 100) / 100,
+      card_type_distribution: typeDistribution
+    };
+  };
 
   // Filter cards
   const filteredCards = cards.filter(card => {
@@ -66,18 +137,22 @@ const DeckBuilder: React.FC = () => {
       return;
     }
 
+    const newCardIds = [...deck.card_ids, card.card_id];
     const newDeck = {
       ...deck,
-      card_ids: [...deck.card_ids, card.card_id]
+      card_ids: newCardIds,
+      ...calculateDeckStats(newCardIds)
     };
     setDeck(newDeck);
   };
 
   // Remove card from deck
   const removeCardFromDeck = (cardId: string) => {
+    const newCardIds = deck.card_ids.filter(id => id !== cardId);
     const newDeck = {
       ...deck,
-      card_ids: deck.card_ids.filter(id => id !== cardId)
+      card_ids: newCardIds,
+      ...calculateDeckStats(newCardIds)
     };
     setDeck(newDeck);
   };
@@ -103,7 +178,11 @@ const DeckBuilder: React.FC = () => {
         body: JSON.stringify({
           name: deckName,
           description: deckDescription,
-          card_ids: deck.card_ids
+          card_ids: deck.card_ids,
+          deck_colors: deck.deck_colors,
+          total_cost: deck.total_cost,
+          average_cost: deck.average_cost,
+          card_type_distribution: deck.card_type_distribution
         }),
       });
 
@@ -111,7 +190,25 @@ const DeckBuilder: React.FC = () => {
         const data = await response.json();
         alert('Deck saved successfully!');
         // Reset deck
-        setDeck({ name: '', description: '', card_ids: [] });
+        const resetDeck = {
+          name: '',
+          description: '',
+          card_ids: [],
+          deck_colors: [],
+          total_cost: 0,
+          average_cost: 0,
+          card_type_distribution: {
+            Spell: 0,
+            Unit: 0,
+            Champion: 0,
+            Legend: 0,
+            Battlefield: 0,
+            Gear: 0,
+            Rune: 0,
+            Token: 0
+          }
+        };
+        setDeck(resetDeck);
         setDeckName('My New Deck');
         setDeckDescription('');
       } else {
@@ -261,11 +358,22 @@ const DeckBuilder: React.FC = () => {
               />
             </div>
 
+            {/* Deck Statistics */}
             <div className="stats stats-vertical shadow">
               <div className="stat">
                 <div className="stat-title">Total Cards</div>
                 <div className="stat-value">{deck.card_ids.length}</div>
                 <div className="stat-desc">/ 40 maximum</div>
+              </div>
+              <div className="stat">
+                <div className="stat-title">Total Cost</div>
+                <div className="stat-value">{deck.total_cost}</div>
+                <div className="stat-desc">Average: {deck.average_cost}</div>
+              </div>
+              <div className="stat">
+                <div className="stat-title">Colors</div>
+                <div className="stat-value">{deck.deck_colors.length}</div>
+                <div className="stat-desc">{deck.deck_colors.join(', ') || 'None'}</div>
               </div>
             </div>
 
@@ -304,6 +412,7 @@ const DeckBuilder: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-sm truncate">{card.name}</h4>
                       <p className="text-xs text-base-content/70">{card.card_type}</p>
+                      <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
                     </div>
                     <button
                       className="btn btn-ghost btn-sm text-error"
