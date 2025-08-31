@@ -9,8 +9,29 @@ from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 import re
+from bson import ObjectId
 
 app = FastAPI(title="Riftbound Deck Builder", version="1.0.0")
+
+# Helper function to convert MongoDB documents to JSON-serializable format
+def convert_mongo_document(doc):
+    """Convert MongoDB document to JSON-serializable format"""
+    if isinstance(doc, dict):
+        # Convert ObjectId to string
+        if "_id" in doc and isinstance(doc["_id"], ObjectId):
+            doc["_id"] = str(doc["_id"])
+        
+        # Convert datetime objects to ISO strings
+        for key, value in doc.items():
+            if isinstance(value, datetime):
+                doc[key] = value.isoformat()
+            elif isinstance(value, dict):
+                doc[key] = convert_mongo_document(value)
+            elif isinstance(value, list):
+                doc[key] = [convert_mongo_document(item) if isinstance(item, dict) else item for item in value]
+        
+        return doc
+    return doc
 
 # Add CORS middleware
 app.add_middleware(
@@ -30,13 +51,50 @@ sets_collection = db.sets
 
 # Create indexes for better performance
 async def create_indexes():
-    await cards_collection.create_index("card_id", unique=True)
-    await cards_collection.create_index("set_code")
-    await cards_collection.create_index("card_type")
-    await cards_collection.create_index("color")
-    await cards_collection.create_index("cost")
-    await cards_collection.create_index("rarity")
-    await sets_collection.create_index("set_code", unique=True)
+    try:
+        # Check if indexes already exist to avoid duplicate key errors
+        existing_indexes = await cards_collection.list_indexes().to_list(None)
+        existing_index_names = [idx['name'] for idx in existing_indexes]
+        
+        # Only create indexes if they don't exist
+        if "card_id_1" not in existing_index_names:
+            await cards_collection.create_index("card_id", unique=True)
+            print("Created card_id index")
+        
+        if "set_code_1" not in existing_index_names:
+            await cards_collection.create_index("set_code")
+            print("Created set_code index")
+            
+        if "card_type_1" not in existing_index_names:
+            await cards_collection.create_index("card_type")
+            print("Created card_type index")
+            
+        if "color_1" not in existing_index_names:
+            await cards_collection.create_index("color")
+            print("Created color index")
+            
+        if "cost_1" not in existing_index_names:
+            await cards_collection.create_index("cost")
+            print("Created cost index")
+            
+        if "rarity_1" not in existing_index_names:
+            await cards_collection.create_index("rarity")
+            print("Created rarity index")
+        
+        # Check sets collection indexes
+        existing_set_indexes = await sets_collection.list_indexes().to_list(None)
+        existing_set_index_names = [idx['name'] for idx in existing_set_indexes]
+        
+        if "set_code_1" not in existing_set_index_names:
+            await sets_collection.create_index("set_code", unique=True)
+            print("Created set_code index for sets")
+            
+        print("All indexes created successfully")
+        
+    except Exception as e:
+        print(f"Warning: Error creating indexes: {e}")
+        print("Application will continue without optimal indexing")
+        # Don't raise the error - let the app continue
 
 # Mount the cards directory to serve images
 # Use absolute path to Riftbound_Cards folder
@@ -85,7 +143,7 @@ class CardRarity(str, Enum):
 class CardModel(BaseModel):
     name: str = Field(..., min_length=1)
     image_path: str
-    card_id: str = Field(..., pattern=r'^[A-Z]{2,3}_\d{3}$')  # e.g., "OGN_001"
+    card_id: str = Field(..., pattern=r'^[A-Z]{2,3}_\d{3}[aS]?$')  # e.g., "OGN_001", "OGN_007a", "OGN_299S"
     set_name: str
     set_code: str = Field(..., pattern=r'^[A-Z]{2,3}$')  # e.g., "OGN"
     set_release_date: Optional[str] = None
@@ -100,6 +158,7 @@ class CardModel(BaseModel):
     flavor_text: Optional[str] = None
     artist: Optional[str] = None
     collector_number: str
+    variant: Optional[str] = "regular"  # "regular", "alt_art", or "signature"
     is_legendary: bool = False
     is_mythic: bool = False
     keywords: Optional[List[str]] = []
@@ -129,7 +188,24 @@ class DeckModel(BaseModel):
 # Initialize indexes on startup
 @app.on_event("startup")
 async def startup_event():
-    await create_indexes()
+    try:
+        print("Starting up Riftbound Deck Builder Backend...")
+        print(f"MongoDB connection: {client.address}")
+        print(f"Database: {db.name}")
+        
+        # Test database connection
+        await db.command("ping")
+        print("✅ MongoDB connection successful")
+        
+        # Create indexes
+        await create_indexes()
+        
+        print("✅ Backend startup completed successfully")
+        
+    except Exception as e:
+        print(f"⚠️ Warning during startup: {e}")
+        print("Application will continue but some features may not work properly")
+        # Don't crash the app - let it continue
 
 @app.get("/")
 def read_root():
@@ -138,6 +214,30 @@ def read_root():
         "cards_path": cards_path,
         "cards_directory_exists": os.path.exists(cards_path)
     }
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint to verify database connectivity"""
+    try:
+        # Test database connection
+        await db.command("ping")
+        card_count = await cards_collection.count_documents({})
+        set_count = await sets_collection.count_documents({})
+        
+        return {
+            "status": "healthy",
+            "database": "connected",
+            "cards_count": card_count,
+            "sets_count": set_count,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "disconnected",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 # ===== SET MANAGEMENT ENDPOINTS =====
 
@@ -160,7 +260,9 @@ async def get_sets():
     """Get all card sets"""
     try:
         sets = await sets_collection.find().to_list(1000)
-        return {"sets": sets}
+        # Convert MongoDB documents to JSON-serializable format
+        serializable_sets = [convert_mongo_document(set_doc) for set_doc in sets]
+        return {"sets": serializable_sets}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -198,9 +300,10 @@ async def get_cards(
     card_type: Optional[CardType] = None,
     color: Optional[CardColor] = None,
     rarity: Optional[CardRarity] = None,
+    variant: Optional[str] = None,
     min_cost: Optional[int] = None,
     max_cost: Optional[int] = None,
-    limit: int = 100
+    limit: Optional[int] = None
 ):
     """Get cards with optional filters"""
     try:
@@ -214,6 +317,8 @@ async def get_cards(
             filter_query["color"] = color
         if rarity:
             filter_query["rarity"] = rarity
+        if variant:
+            filter_query["variant"] = variant
         if min_cost is not None or max_cost is not None:
             cost_filter = {}
             if min_cost is not None:
@@ -222,8 +327,15 @@ async def get_cards(
                 cost_filter["$lte"] = max_cost
             filter_query["cost"] = cost_filter
         
-        cards = await cards_collection.find(filter_query).limit(limit).to_list(limit)
-        return {"cards": cards, "count": len(cards)}
+        # If no limit specified, get all cards
+        if limit:
+            cards = await cards_collection.find(filter_query).limit(limit).to_list(limit)
+        else:
+            cards = await cards_collection.find(filter_query).to_list(None)
+        
+        # Convert MongoDB documents to JSON-serializable format
+        serializable_cards = [convert_mongo_document(card) for card in cards]
+        return {"cards": serializable_cards, "count": len(serializable_cards)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -232,7 +344,9 @@ async def get_cards_by_set(set_name: str):
     """Get all cards from a specific set"""
     try:
         cards = await cards_collection.find({"set_name": set_name}).to_list(1000)
-        return {"cards": cards, "count": len(cards)}
+        # Convert MongoDB documents to JSON-serializable format
+        serializable_cards = [convert_mongo_document(card) for card in cards]
+        return {"cards": serializable_cards, "count": len(serializable_cards)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -332,12 +446,13 @@ async def scan_cards_directory():
                         card_id = os.path.splitext(filename)[0]
                         
                         # Extract set code from card ID
-                        set_code_match = re.match(r'^([A-Z]{2,3})_(\d{3})$', card_id)
+                        set_code_match = re.match(r'^([A-Z]{2,3})_(\d{3})([aS]?)$', card_id)
                         if not set_code_match:
                             continue
                             
                         set_code = set_code_match.group(1)
                         collector_number = set_code_match.group(2)
+                        variant = set_code_match.group(3)  # 'a' for alt art, 'S' for signature, '' for regular
                         
                         # Check if card already exists
                         existing = await cards_collection.find_one({"card_id": card_id})

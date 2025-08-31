@@ -190,7 +190,7 @@ const CardGallery: React.FC = () => {
           <div key={card.card_id} className="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow cursor-pointer">
             <figure className="px-4 pt-4">
               <img
-                src={`http://localhost:8000/image/${card.set_name}/${card.image_path}`}
+                src={`http://localhost:8000/cards/${card.set_name}/${card.image_path}`}
                 alt={card.name}
                 className="rounded-xl w-full h-48 object-cover"
                 onError={(e) => {

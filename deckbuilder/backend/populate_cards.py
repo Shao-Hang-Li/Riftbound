@@ -70,19 +70,26 @@ async def create_sets():
 async def extract_card_metadata(filename: str, set_folder: str) -> Optional[Dict]:
     """
     Extract card metadata from filename.
-    Expected format: OGN_001.png or OGS_001.png
+    Expected formats: 
+    - OGN_001.png (regular card)
+    - OGN_001a.png (alt art version)
+    - OGN_299S.png (signature version)
     """
     # Remove extension
     card_id = os.path.splitext(filename)[0]
     
-    # Match pattern: SET_XXX (e.g., OGN_001, OGS_001)
-    match = re.match(r'^([A-Z]{2,3})_(\d{3})$', card_id)
+    # Match patterns:
+    # SET_XXX (e.g., OGN_001) - regular card
+    # SET_XXXa (e.g., OGN_007a) - alt art version
+    # SET_XXXS (e.g., OGN_299S) - signature version
+    match = re.match(r'^([A-Z]{2,3})_(\d{3})([aS]?)$', card_id)
     if not match:
         print(f"Skipping {filename}: Invalid filename format")
         return None
     
     set_code = match.group(1)
     collector_number = match.group(2)
+    variant = match.group(3)  # 'a' for alt art, 'S' for signature, '' for regular
     
     # Get set info
     set_info = None
@@ -95,9 +102,20 @@ async def extract_card_metadata(filename: str, set_folder: str) -> Optional[Dict
         print(f"Skipping {filename}: Unknown set code {set_code}")
         return None
     
+    # Determine card name based on variant
+    if variant == 'a':
+        card_name = f"Card {set_code}_{collector_number} (Alt Art)"
+        variant_type = "alt_art"
+    elif variant == 'S':
+        card_name = f"Card {set_code}_{collector_number} (Signature)"
+        variant_type = "signature"
+    else:
+        card_name = f"Card {set_code}_{collector_number}"
+        variant_type = "regular"
+    
     # Create basic card data
     card_data = {
-        "name": f"Card {card_id}",  # Placeholder name
+        "name": card_name,  # Placeholder name with variant info
         "image_path": filename,
         "card_id": card_id,
         "set_name": set_folder,
@@ -114,6 +132,7 @@ async def extract_card_metadata(filename: str, set_folder: str) -> Optional[Dict
         "flavor_text": None,
         "artist": None,
         "collector_number": collector_number,
+        "variant": variant_type,  # Use the proper variant type
         "is_legendary": False,
         "is_mythic": False,
         "keywords": [],
@@ -172,7 +191,8 @@ async def populate_cards():
                 # Insert new card
                 await cards_collection.insert_one(card_data)
                 added_count += 1
-                print(f"  Added: {card_data['card_id']}")
+                variant_info = f" ({card_data['variant']})" if card_data['variant'] != 'regular' else ""
+                print(f"  Added: {card_data['card_id']}{variant_info}")
             else:
                 # Update existing card if image path changed
                 if existing.get("image_path") != card_data["image_path"]:
@@ -180,13 +200,16 @@ async def populate_cards():
                         {"_id": existing["_id"]},
                         {"$set": {
                             "image_path": card_data["image_path"],
+                            "variant": card_data["variant"],
                             "updated_at": datetime.now()
                         }}
                     )
                     updated_count += 1
-                    print(f"  Updated: {card_data['card_id']}")
+                    variant_info = f" ({card_data['variant']})" if card_data['variant'] != 'regular' else ""
+                    print(f"  Updated: {card_data['card_id']}{variant_info}")
                 else:
-                    print(f"  Exists: {card_data['card_id']}")
+                    variant_info = f" ({existing.get('variant', 'regular')})" if existing.get('variant') != 'regular' else ""
+                    print(f"  Exists: {card_data['card_id']}{variant_info}")
     
     # Update set card counts
     for set_folder, set_info in SETS_INFO.items():
@@ -207,6 +230,15 @@ async def populate_cards():
     # Print summary
     total_cards = await cards_collection.count_documents({})
     print(f"Total cards in database: {total_cards}")
+    
+    # Count variants by type
+    alt_art_count = await cards_collection.count_documents({"variant": "alt_art"})
+    signature_count = await cards_collection.count_documents({"variant": "signature"})
+    regular_count = await cards_collection.count_documents({"variant": "regular"})
+    
+    print(f"Regular cards: {regular_count}")
+    print(f"Alt art variants: {alt_art_count}")
+    print(f"Signature variants: {signature_count}")
     
     for set_folder, set_info in SETS_INFO.items():
         count = await cards_collection.count_documents({"set_name": set_folder})

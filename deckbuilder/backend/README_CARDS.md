@@ -36,8 +36,9 @@ python run_population.py
 This will:
 - Create the two card sets in MongoDB
 - Scan your `Riftbound_Cards` directory
-- Create card entries for all PNG files
+- Create card entries for ALL PNG files (including variants)
 - Extract metadata from filenames (e.g., "OGN_001.png" → card_id: "OGN_001")
+- Handle alt art versions (ending with 'a') and signature versions (ending with 'S')
 
 ### 3. **Start the Backend**
 ```bash
@@ -47,7 +48,7 @@ uvicorn main:app --reload
 ## API Endpoints
 
 ### **Card Management**
-- `GET /cards` - List all cards with filters
+- `GET /cards` - List all cards with filters (including variant filtering)
 - `GET /cards/{set_name}` - Get cards from a specific set
 - `PUT /cards/{card_id}` - Update a specific card
 - `POST /cards/bulk-update` - Update multiple cards at once
@@ -136,6 +137,11 @@ Cards must follow this naming pattern:
   - `OGN_001.png` (Origins Main Set, card #001)
   - `OGS_001.png` (Origins Proving Grounds, card #001)
 
+### **Variant Cards**
+- **Alt Art Versions**: `SET_XXXa.png` (e.g., `OGN_007a.png`)
+- **Signature Versions**: `SET_XXXS.png` (e.g., `OGN_299S.png`)
+- **Regular Cards**: `SET_XXX.png` (e.g., `OGN_001.png`)
+
 ## Database Collections
 
 - **`cards`** - All card metadata and references
@@ -180,6 +186,14 @@ const imageUrl = `/cards/Origins_MainSet/${card.image_path}`;
 
 // Filter cards by type
 const spells = await fetch('/cards?card_type=Spell&set_code=OGN');
+
+// Filter cards by variant
+const altArtCards = await fetch('/cards?variant=alt_art');
+const signatureCards = await fetch('/cards?variant=signature');
+const regularCards = await fetch('/cards?variant=regular');
+
+// Get all variants of a specific card
+const cardVariants = await fetch('/cards?collector_number=001&set_code=OGN');
 ```
 
 This system gives you a complete card management solution with automatic image serving and flexible metadata storage!
