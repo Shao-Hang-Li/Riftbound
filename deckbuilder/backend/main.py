@@ -39,7 +39,20 @@ async def create_indexes():
     await sets_collection.create_index("set_code", unique=True)
 
 # Mount the cards directory to serve images
-app.mount("/cards", StaticFiles(directory="../Riftbound_Cards"), name="cards")
+# Use absolute path to Riftbound_Cards folder
+cards_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Riftbound_Cards"))
+
+# Debug: Print the calculated path
+print(f"Cards directory path: {cards_path}")
+print(f"Directory exists: {os.path.exists(cards_path)}")
+
+# Only mount if directory exists
+if os.path.exists(cards_path):
+    app.mount("/cards", StaticFiles(directory=cards_path), name="cards")
+    print("Successfully mounted cards directory")
+else:
+    print(f"WARNING: Cards directory not found at {cards_path}")
+    print("Card images will not be served until the directory is created")
 
 # Enums for card classification
 class CardType(str, Enum):
@@ -72,9 +85,9 @@ class CardRarity(str, Enum):
 class CardModel(BaseModel):
     name: str = Field(..., min_length=1)
     image_path: str
-    card_id: str = Field(..., regex=r'^[A-Z]{2,3}_\d{3}$')  # e.g., "OGN_001"
+    card_id: str = Field(..., pattern=r'^[A-Z]{2,3}_\d{3}$')  # e.g., "OGN_001"
     set_name: str
-    set_code: str = Field(..., regex=r'^[A-Z]{2,3}$')  # e.g., "OGN"
+    set_code: str = Field(..., pattern=r'^[A-Z]{2,3}$')  # e.g., "OGN"
     set_release_date: Optional[str] = None
     card_type: CardType
     card_subtype: Optional[str] = None
@@ -94,7 +107,7 @@ class CardModel(BaseModel):
     updated_at: Optional[datetime] = None
 
 class SetInfoModel(BaseModel):
-    set_code: str = Field(..., regex=r'^[A-Z]{2,3}$')
+    set_code: str = Field(..., pattern=r'^[A-Z]{2,3}$')
     set_name: str
     set_full_name: str
     release_date: str
@@ -120,7 +133,11 @@ async def startup_event():
 
 @app.get("/")
 def read_root():
-    return {"message": "Riftbound Deck Builder Backend"}
+    return {
+        "message": "Riftbound Deck Builder Backend",
+        "cards_path": cards_path,
+        "cards_directory_exists": os.path.exists(cards_path)
+    }
 
 # ===== SET MANAGEMENT ENDPOINTS =====
 
@@ -154,7 +171,7 @@ async def add_card(card: CardModel):
     """Add a card reference to MongoDB"""
     try:
         # Check if image file exists
-        full_path = f"../Riftbound_Cards/{card.set_name}/{card.image_path}"
+        full_path = os.path.join(cards_path, card.set_name, card.image_path)
         if not os.path.exists(full_path):
             raise HTTPException(status_code=404, detail="Image file not found")
         
@@ -292,7 +309,7 @@ async def get_cards_stats_by_set():
 @app.get("/image/{set_name}/{filename}")
 async def get_card_image(set_name: str, filename: str):
     """Serve a card image file"""
-    image_path = f"../Riftbound_Cards/{set_name}/{filename}"
+    image_path = os.path.join(cards_path, set_name, filename)
     if os.path.exists(image_path):
         return FileResponse(image_path)
     else:
@@ -302,7 +319,7 @@ async def get_card_image(set_name: str, filename: str):
 async def scan_cards_directory():
     """Automatically scan the Riftbound_Cards directory and add all cards to MongoDB"""
     try:
-        cards_dir = "../Riftbound_Cards"
+        cards_dir = cards_path
         added_count = 0
         updated_count = 0
         

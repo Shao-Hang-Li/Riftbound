@@ -130,7 +130,8 @@ async def scan_and_classify_cards():
     """Scan the cards directory and create basic entries for unclassified cards"""
     print("\nScanning cards directory...")
     
-    cards_dir = "../Riftbound_Cards"
+    # Use absolute path to Riftbound_Cards folder
+    cards_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Riftbound_Cards"))
     added_count = 0
     updated_count = 0
     
