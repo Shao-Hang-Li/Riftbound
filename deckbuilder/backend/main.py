@@ -567,6 +567,15 @@ async def create_deck(deck: DeckModel):
             if card_counts[card_id] > 3:
                 raise HTTPException(status_code=400, detail=f"Cannot have more than 3 copies of {card_id}")
         
+        # Check Legend rule - only 1 Legend allowed per deck
+        legend_count = 0
+        for card_id in deck.card_ids:
+            card = await cards_collection.find_one({"card_id": card_id})
+            if card and card.get("card_type") == "Legend":
+                legend_count += 1
+                if legend_count > 1:
+                    raise HTTPException(status_code=400, detail="You can only have 1 Legend card in your deck")
+        
         # Set timestamps
         deck.created_at = datetime.now()
         deck.updated_at = datetime.now()
@@ -583,7 +592,9 @@ async def get_decks():
     """Get all decks"""
     try:
         decks = await decks_collection.find().to_list(1000)
-        return {"decks": decks}
+        # Convert MongoDB documents to JSON-serializable format
+        serializable_decks = [convert_mongo_document(deck) for deck in decks]
+        return {"decks": serializable_decks}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -601,10 +612,12 @@ async def get_deck(deck_id: str):
         for card_id in deck["card_ids"]:
             card = await cards_collection.find_one({"card_id": card_id})
             if card:
-                deck_cards.append(card)
+                deck_cards.append(convert_mongo_document(card))
         
-        deck["cards"] = deck_cards
-        return {"deck": deck}
+        # Convert the deck document to JSON-serializable format
+        serializable_deck = convert_mongo_document(deck)
+        serializable_deck["cards"] = deck_cards
+        return {"deck": serializable_deck}
     except HTTPException:
         raise
     except Exception as e:
@@ -634,6 +647,16 @@ async def add_card_to_deck(deck_id: str, card_id: str):
         current_count = deck["card_ids"].count(card_id)
         if current_count >= 3:
             raise HTTPException(status_code=400, detail=f"Cannot have more than 3 copies of {card_id}")
+        
+        # Check Legend rule - only 1 Legend allowed per deck
+        if card.get("card_type") == "Legend":
+            existing_legend_count = 0
+            for existing_card_id in deck["card_ids"]:
+                existing_card = await cards_collection.find_one({"card_id": existing_card_id})
+                if existing_card and existing_card.get("card_type") == "Legend":
+                    existing_legend_count += 1
+                    if existing_legend_count >= 1:
+                        raise HTTPException(status_code=400, detail="You can only have 1 Legend card in your deck")
         
         # Add card to deck
         await decks_collection.update_one(

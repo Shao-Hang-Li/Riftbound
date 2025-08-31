@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Deck, CardType, CardColor } from '../types/Card';
+import ErrorModal from '../components/ErrorModal';
 
 const DeckBuilder: React.FC = () => {
   const [cards, setCards] = useState<Card[]>([]);
@@ -27,12 +28,23 @@ const DeckBuilder: React.FC = () => {
   const [selectedType, setSelectedType] = useState('all');
   const [deckName, setDeckName] = useState('My New Deck');
   const [deckDescription, setDeckDescription] = useState('');
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'error' | 'warning' | 'success' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'error'
+  });
 
   // Fetch cards from MongoDB
   useEffect(() => {
     const fetchCards = async () => {
       try {
-        const response = await fetch('http://localhost:8000/cards');
+        const response = await fetch('/cards');
         if (response.ok) {
           const data = await response.json();
           setCards(data.cards || []);
@@ -127,13 +139,42 @@ const DeckBuilder: React.FC = () => {
   // Add card to deck
   const addCardToDeck = async (card: Card) => {
     if (deck.card_ids.length >= 40) {
-      alert('Deck is full! Maximum 40 cards allowed.');
+      setErrorModal({
+        isOpen: true,
+        title: 'Deck Full',
+        message: 'Deck is full! Maximum 40 cards allowed.',
+        type: 'warning'
+      });
       return;
     }
 
     const currentCount = deck.card_ids.filter(id => id === card.card_id).length;
     if (currentCount >= 3) {
-      return; // Silently return without adding or showing error
+      setErrorModal({
+        isOpen: true,
+        title: 'Maximum Copies Reached',
+        message: `Cannot add more than 3 copies of ${card.name}`,
+        type: 'warning'
+      });
+      return;
+    }
+
+    // Check Legend rule - only 1 Legend allowed per deck
+    if (card.card_type === 'Legend') {
+      const existingLegend = deck.card_ids.some(cardId => {
+        const existingCard = cards.find(c => c.card_id === cardId);
+        return existingCard?.card_type === 'Legend';
+      });
+      
+      if (existingLegend) {
+        setErrorModal({
+          isOpen: true,
+          title: 'Legend Rule Violation',
+          message: 'You can only have 1 Legend card in your deck.',
+          type: 'error'
+        });
+        return;
+      }
     }
 
     const newCardIds = [...deck.card_ids, card.card_id];
@@ -156,20 +197,65 @@ const DeckBuilder: React.FC = () => {
     setDeck(newDeck);
   };
 
+  // Change card quantity in deck
+  const changeCardQuantity = (cardId: string, newQuantity: number) => {
+    if (newQuantity < 0) return;
+    
+    const currentCount = deck.card_ids.filter(id => id === cardId).length;
+    let newCardIds = [...deck.card_ids];
+    
+    if (newQuantity > currentCount) {
+      // Add more copies
+      const card = cards.find(c => c.card_id === cardId);
+      if (card && newQuantity <= 3) {
+        const copiesToAdd = newQuantity - currentCount;
+        for (let i = 0; i < copiesToAdd; i++) {
+          newCardIds.push(cardId);
+        }
+      }
+    } else if (newQuantity < currentCount) {
+      // Remove copies
+      const copiesToRemove = currentCount - newQuantity;
+      for (let i = 0; i < copiesToRemove; i++) {
+        const index = newCardIds.indexOf(cardId);
+        if (index > -1) {
+          newCardIds.splice(index, 1);
+        }
+      }
+    }
+    
+    const newDeck = {
+      ...deck,
+      card_ids: newCardIds,
+      ...calculateDeckStats(newCardIds)
+    };
+    setDeck(newDeck);
+  };
+
   // Save deck
   const saveDeck = async () => {
     if (!deckName.trim()) {
-      alert('Please enter a deck name');
+      setErrorModal({
+        isOpen: true,
+        title: 'Missing Information',
+        message: 'Please enter a deck name',
+        type: 'warning'
+      });
       return;
     }
 
     if (deck.card_ids.length === 0) {
-      alert('Please add some cards to your deck');
+      setErrorModal({
+        isOpen: true,
+        title: 'Empty Deck',
+        message: 'Please add some cards to your deck',
+        type: 'warning'
+      });
       return;
     }
 
     try {
-      const response = await fetch('http://localhost:8000/decks', {
+      const response = await fetch('/decks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,7 +273,12 @@ const DeckBuilder: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        alert('Deck saved successfully!');
+        setErrorModal({
+          isOpen: true,
+          title: 'Success!',
+          message: 'Deck saved successfully!',
+          type: 'success'
+        });
         // Reset deck
         const resetDeck = {
           name: '',
@@ -212,11 +303,21 @@ const DeckBuilder: React.FC = () => {
         setDeckDescription('');
       } else {
         const errorData = await response.json();
-        alert(`Error saving deck: ${errorData.error}`);
+        setErrorModal({
+          isOpen: true,
+          title: 'Error Saving Deck',
+          message: `Error saving deck: ${errorData.error}`,
+          type: 'error'
+        });
       }
     } catch (error) {
       console.error('Error saving deck:', error);
-      alert('Failed to save deck');
+      setErrorModal({
+        isOpen: true,
+        title: 'Network Error',
+        message: 'Failed to save deck. Please check your connection.',
+        type: 'error'
+      });
     }
   };
 
@@ -242,12 +343,16 @@ const DeckBuilder: React.FC = () => {
     );
   }
 
+  const closeErrorModal = () => {
+    setErrorModal(prev => ({ ...prev, isOpen: false }));
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold text-primary mb-2">Deck Builder</h1>
-        <p className="text-lg text-base-content/70">Build your perfect deck (Max 40 cards, Max 3 copies per card)</p>
+        <p className="text-lg text-base-content/70">Build your perfect deck (Max 40 cards, Max 3 copies per card, Max 1 Legend)</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -320,23 +425,26 @@ const DeckBuilder: React.FC = () => {
                   title={isMaxCopies ? `${card.name} - Maximum copies reached (3)` : `Click to add ${card.name} to deck`}
                 >
                 <figure className="px-2 pt-2">
-                  <img
-                    src={`http://localhost:8000/image/${card.set_name}/${card.image_path}`}
-                    alt={card.name}
-                    className="rounded-lg w-full h-auto object-contain"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = 'https://via.placeholder.com/200x250?text=Card';
-                    }}
-                  />
+                                  <img
+                  src={`/image/${card.set_name}/${card.image_path}`}
+                  alt={card.name}
+                  className="rounded-lg w-full h-auto object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = 'https://via.placeholder.com/200x250?text=Card';
+                  }}
+                />
                 </figure>
-                <div className="card-body p-2">
-                  <h3 className="card-title text-xs font-bold truncate">{card.name}</h3>
-                  <p className="text-xs text-base-content/70">{card.card_type}</p>
-                  <div className="card-actions justify-end mt-1">
-                    <div className="badge badge-primary badge-sm">{card.card_id}</div>
-                  </div>
-                </div>
+                                 <div className="card-body p-2">
+                   <h3 className="card-title text-xs font-bold truncate">{card.name}</h3>
+                   <p className="text-xs text-base-content/70">{card.card_type}</p>
+                   <div className="card-actions justify-end mt-1">
+                     <div className="badge badge-primary badge-sm">{card.card_id}</div>
+                     {currentCount > 0 && (
+                       <div className="badge badge-secondary badge-sm">x{currentCount}</div>
+                     )}
+                   </div>
+                 </div>
               </div>
               );
             })}
@@ -418,7 +526,7 @@ const DeckBuilder: React.FC = () => {
                 {deckCardsWithCount.map(({ card, count }) => (
                   <div key={card.card_id} className="flex items-center gap-2 p-2 bg-base-100 rounded-lg">
                     <img
-                      src={`http://localhost:8000/image/${card.set_name}/${card.image_path}`}
+                      src={`/image/${card.set_name}/${card.image_path}`}
                       alt={card.name}
                       className="w-12 h-16 object-cover rounded"
                       onError={(e) => {
@@ -431,16 +539,36 @@ const DeckBuilder: React.FC = () => {
                       <p className="text-xs text-base-content/70">{card.card_type}</p>
                       <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="badge badge-primary badge-sm">x{count}</span>
-                      <button
-                        className="btn btn-ghost btn-sm text-error"
-                        onClick={() => removeCardFromDeck(card.card_id)}
-                        title="Remove one copy"
-                      >
-                        ✕
-                      </button>
-                    </div>
+                                         <div className="flex items-center gap-2">
+                       {/* Quantity Controls */}
+                       <div className="flex items-center gap-1">
+                         <button
+                           className="btn btn-ghost btn-xs text-base-content/70 hover:text-base-content"
+                           onClick={() => changeCardQuantity(card.card_id, count - 1)}
+                           disabled={count <= 1}
+                           title="Decrease quantity"
+                         >
+                           -
+                         </button>
+                         <span className="badge badge-primary badge-sm min-w-[2rem]">{count}</span>
+                         <button
+                           className="btn btn-ghost btn-xs text-base-content/70 hover:text-base-content"
+                           onClick={() => changeCardQuantity(card.card_id, count + 1)}
+                           disabled={count >= 3}
+                           title="Increase quantity"
+                         >
+                           +
+                         </button>
+                       </div>
+                       {/* Delete Button */}
+                       <button
+                         className="btn btn-ghost btn-sm text-error hover:bg-error hover:text-error-content"
+                         onClick={() => removeCardFromDeck(card.card_id)}
+                         title="Remove all copies"
+                       >
+                         🗑️
+                       </button>
+                     </div>
                   </div>
                 ))}
               </div>
@@ -448,6 +576,15 @@ const DeckBuilder: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={errorModal.isOpen}
+        onClose={closeErrorModal}
+        title={errorModal.title}
+        message={errorModal.message}
+        type={errorModal.type}
+      />
     </div>
   );
 };

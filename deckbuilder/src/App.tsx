@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
 import CardGallery from './pages/CardGallery';
 import DeckBuilder from './pages/DeckBuilder';
+import DeckViewer from './pages/DeckViewer';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
               <ul tabIndex={0} className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
                 <li><Link to="/">Card Gallery</Link></li>
                 <li><Link to="/deck-builder">Deck Builder</Link></li>
+                <li><Link to="/deck-viewer">Deck Viewer</Link></li>
               </ul>
             </div>
             <Link to="/" className="btn btn-ghost text-xl">Riftbound Deck Builder</Link>
@@ -27,6 +29,7 @@ function App() {
             <ul className="menu menu-horizontal px-1">
               <li><Link to="/" className="link link-hover">Card Gallery</Link></li>
               <li><Link to="/deck-builder" className="link link-hover">Deck Builder</Link></li>
+              <li><Link to="/deck-viewer" className="link link-hover">Deck Viewer</Link></li>
             </ul>
           </div>
           <div className="navbar-end">
@@ -40,6 +43,7 @@ function App() {
           <Routes>
             <Route path="/" element={<CardGallery />} />
             <Route path="/deck-builder" element={<DeckBuilder />} />
+            <Route path="/deck-viewer" element={<DeckViewer />} />
           </Routes>
         </main>
       </div>

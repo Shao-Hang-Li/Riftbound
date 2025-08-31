@@ -15,7 +15,7 @@ const CardGallery: React.FC = () => {
   useEffect(() => {
     const fetchCards = async () => {
       try {
-        const response = await fetch('http://localhost:8000/cards');
+        const response = await fetch('/cards');
         if (response.ok) {
           const data = await response.json();
           setCards(data.cards || []);
@@ -189,15 +189,16 @@ const CardGallery: React.FC = () => {
         {filteredCards.map((card) => (
           <div key={card.card_id} className="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow cursor-pointer">
             <figure className="px-4 pt-4">
-              <img
-                src={`http://localhost:8000/cards/${card.set_name}/${card.image_path}`}
-                alt={card.name}
-                className="rounded-xl w-full h-auto object-contain"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = 'https://via.placeholder.com/300x400?text=Card+Image';
-                }}
-              />
+                              <img
+                  src={`/cards/${card.set_name}/${card.image_path}`}
+                  alt={card.name}
+                  className="rounded-xl w-full h-auto object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = 'https://via.placeholder.com/300x400?text=Card+Image';
+                    target.src = 'https://via.placeholder.com/300x400?text=Card+Image';
+                  }}
+                />
             </figure>
             <div className="card-body p-4">
               <h2 className="card-title text-sm font-bold">{card.name}</h2>
