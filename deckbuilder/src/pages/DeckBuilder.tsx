@@ -133,8 +133,7 @@ const DeckBuilder: React.FC = () => {
 
     const currentCount = deck.card_ids.filter(id => id === card.card_id).length;
     if (currentCount >= 3) {
-      alert(`Cannot add more than 3 copies of ${card.name}`);
-      return;
+      return; // Silently return without adding or showing error
     }
 
     const newCardIds = [...deck.card_ids, card.card_id];
@@ -221,10 +220,19 @@ const DeckBuilder: React.FC = () => {
     }
   };
 
-  // Get deck cards with full details
-  const deckCards = deck.card_ids.map(cardId => 
-    cards.find(card => card.card_id === cardId)
-  ).filter(Boolean) as Card[];
+  // Get deck cards with full details and count
+  const deckCardsWithCount = deck.card_ids.reduce((acc, cardId) => {
+    const card = cards.find(card => card.card_id === cardId);
+    if (card) {
+      const existing = acc.find(item => item.card.card_id === cardId);
+      if (existing) {
+        existing.count++;
+      } else {
+        acc.push({ card, count: 1 });
+      }
+    }
+    return acc;
+  }, [] as { card: Card; count: number }[]);
 
   if (loading) {
     return (
@@ -296,18 +304,26 @@ const DeckBuilder: React.FC = () => {
 
           {/* Cards Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {filteredCards.map((card) => (
-              <div 
-                key={card.card_id} 
-                className="card bg-base-100 shadow-lg hover:shadow-xl transition-shadow cursor-pointer border-2 border-transparent hover:border-primary"
-                onClick={() => addCardToDeck(card)}
-                title={`Click to add ${card.name} to deck`}
-              >
+            {filteredCards.map((card) => {
+              const currentCount = deck.card_ids.filter(id => id === card.card_id).length;
+              const isMaxCopies = currentCount >= 3;
+              
+              return (
+                <div 
+                  key={card.card_id} 
+                  className={`card shadow-lg transition-shadow border-2 ${
+                    isMaxCopies 
+                      ? 'bg-base-300 opacity-50 cursor-not-allowed border-gray-400' 
+                      : 'bg-base-100 hover:shadow-xl cursor-pointer border-transparent hover:border-primary'
+                  }`}
+                  onClick={() => !isMaxCopies && addCardToDeck(card)}
+                  title={isMaxCopies ? `${card.name} - Maximum copies reached (3)` : `Click to add ${card.name} to deck`}
+                >
                 <figure className="px-2 pt-2">
                   <img
                     src={`http://localhost:8000/image/${card.set_name}/${card.image_path}`}
                     alt={card.name}
-                    className="rounded-lg w-full h-32 object-cover"
+                    className="rounded-lg w-full h-auto object-contain"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.src = 'https://via.placeholder.com/200x250?text=Card';
@@ -322,7 +338,8 @@ const DeckBuilder: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -390,7 +407,7 @@ const DeckBuilder: React.FC = () => {
           <div className="bg-base-200 p-4 rounded-lg">
             <h3 className="text-lg font-semibold mb-3">Current Deck</h3>
             
-            {deckCards.length === 0 ? (
+            {deckCardsWithCount.length === 0 ? (
               <div className="text-center py-8 text-base-content/70">
                 <div className="text-4xl mb-2">🃏</div>
                 <p>No cards in deck</p>
@@ -398,8 +415,8 @@ const DeckBuilder: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {deckCards.map((card, index) => (
-                  <div key={`${card.card_id}-${index}`} className="flex items-center gap-2 p-2 bg-base-100 rounded-lg">
+                {deckCardsWithCount.map(({ card, count }) => (
+                  <div key={card.card_id} className="flex items-center gap-2 p-2 bg-base-100 rounded-lg">
                     <img
                       src={`http://localhost:8000/image/${card.set_name}/${card.image_path}`}
                       alt={card.name}
@@ -414,13 +431,16 @@ const DeckBuilder: React.FC = () => {
                       <p className="text-xs text-base-content/70">{card.card_type}</p>
                       <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
                     </div>
-                    <button
-                      className="btn btn-ghost btn-sm text-error"
-                      onClick={() => removeCardFromDeck(card.card_id)}
-                      title="Remove card"
-                    >
-                      ✕
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="badge badge-primary badge-sm">x{count}</span>
+                      <button
+                        className="btn btn-ghost btn-sm text-error"
+                        onClick={() => removeCardFromDeck(card.card_id)}
+                        title="Remove one copy"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
