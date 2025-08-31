@@ -373,6 +373,68 @@ async def scan_cards_directory():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.put("/cards/{card_id}")
+async def update_card(card_id: str, card_updates: dict):
+    """Update a specific card with new information"""
+    try:
+        # Remove fields that shouldn't be updated
+        updates = {k: v for k, v in card_updates.items() 
+                  if k not in ['_id', 'card_id', 'created_at']}
+        updates['updated_at'] = datetime.now()
+        
+        result = await cards_collection.update_one(
+            {"card_id": card_id},
+            {"$set": updates}
+        )
+        
+        if result.modified_count > 0:
+            return {"message": f"Card {card_id} updated successfully"}
+        else:
+            raise HTTPException(status_code=404, detail=f"Card {card_id} not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/cards/bulk-update")
+async def bulk_update_cards(card_updates: List[dict]):
+    """Bulk update multiple cards at once"""
+    try:
+        updated_count = 0
+        errors = []
+        
+        for update in card_updates:
+            try:
+                card_id = update.get('card_id')
+                if not card_id:
+                    errors.append({"card_id": "missing", "error": "Missing card_id"})
+                    continue
+                
+                # Remove card_id from updates
+                updates = {k: v for k, v in update.items() if k != 'card_id'}
+                updates['updated_at'] = datetime.now()
+                
+                result = await cards_collection.update_one(
+                    {"card_id": card_id},
+                    {"$set": updates}
+                )
+                
+                if result.modified_count > 0:
+                    updated_count += 1
+                else:
+                    errors.append({"card_id": card_id, "error": "Card not found"})
+                    
+            except Exception as e:
+                errors.append({"card_id": update.get('card_id', 'unknown'), "error": str(e)})
+        
+        return {
+            "message": f"Bulk update completed. Updated {updated_count} cards.",
+            "updated_count": updated_count,
+            "errors": errors
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ===== DECK BUILDER ENDPOINTS =====
 
 @app.post("/decks")
