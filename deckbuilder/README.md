@@ -60,7 +60,6 @@ uvicorn main:app --reload
 - FastAPI
 - MongoDB (Motor async driver)
 - Pydantic
-- JWT Authentication
 
 ## Development
 
@@ -74,6 +73,5 @@ uvicorn main:app --reload
 - Tailwind CSS for styling
 - DaisyUI components
 - FastAPI backend with MongoDB
-- JWT authentication
 - Deck building functionality
 - Card collection management
