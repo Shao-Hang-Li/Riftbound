@@ -341,20 +341,15 @@ const CardGallery: React.FC = () => {
                 )}
 
                 {/* Subtypes */}
-                {(selectedCard.subtype_1 || selectedCard.subtype_2) && (
+                {selectedCard.subtype && selectedCard.subtype.length > 0 && (
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-base-content/70">Subtypes</label>
                     <div className="flex gap-2">
-                      {selectedCard.subtype_1 && (
-                        <div className="badge badge-outline badge-lg">
-                          {selectedCard.subtype_1}
+                      {selectedCard.subtype.map((subtype, index) => (
+                        <div key={index} className="badge badge-outline badge-lg">
+                          {subtype}
                         </div>
-                      )}
-                      {selectedCard.subtype_2 && (
-                        <div className="badge badge-outline badge-lg">
-                          {selectedCard.subtype_2}
-                        </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 )}

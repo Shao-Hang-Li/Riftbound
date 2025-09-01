@@ -7,8 +7,7 @@ export interface Card {
   set_code: string; // e.g., "OGN", "OGS"
   set_release_date?: string; // ISO date string
   card_type: CardType;
-  subtype_1?: string; // e.g., "Human", "Fire"
-  subtype_2?: string; // e.g., "Warrior", "Spell"
+  subtype: string[]; // Array of subtypes, e.g., ["Human", "Warrior"]
   color: CardColor[];
   cost: number; // 0 to 7+
   rarity: CardRarity;

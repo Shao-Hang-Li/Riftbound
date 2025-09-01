@@ -164,9 +164,9 @@ class CardModel(BaseModel):
     
     @validator('subtype')
     def validate_subtype(cls, v, values):
-        """Validate that cards can have at most 2 subtypes"""
-        if len(v) > 2:
-            raise ValueError('Cards can have at most 2 subtypes')
+        """Validate that cards can have at most 3 subtypes"""
+        if len(v) > 3:
+            raise ValueError('Cards can have at most 3 subtypes')
         return v
     
     @validator('color')
@@ -698,7 +698,7 @@ async def scan_cards_directory():
                                 set_name=set_folder,
                                 set_code=set_code,
                                 card_type=CardType.SPELL,  # Default, user should update
-                                subtype=[],  # Default empty, user should update
+                                subtype=[],  # Default empty array, user should update
                                 color=[CardColor.COLORLESS],  # Default single color, user should update
                                 cost=0,  # Default, user should update
                                 rarity=CardRarity.COMMON,  # Default, user should update
