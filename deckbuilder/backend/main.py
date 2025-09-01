@@ -4,8 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, validator
+from typing import Optional, List, Union
 from datetime import datetime
 from enum import Enum
 import re
@@ -116,7 +116,7 @@ else:
 class CardType(str, Enum):
     SPELL = "Spell"
     UNIT = "Unit"
-    CHAMPION = "Champion"
+    CHAMPION_UNIT = "Champion Unit"
     LEGEND = "Legend"
     BATTLEFIELD = "Battlefield"
     GEAR = "Gear"
@@ -150,7 +150,7 @@ class CardModel(BaseModel):
     card_type: CardType
     subtype_1: Optional[str] = None
     subtype_2: Optional[str] = None
-    color: List[CardColor]
+    color: Union[CardColor, List[CardColor]]
     cost: int = Field(..., ge=0, le=7)  # 0 to 7+
     rarity: CardRarity
     might: Optional[int] = Field(None, ge=0)
@@ -162,6 +162,23 @@ class CardModel(BaseModel):
     keywords: Optional[List[str]] = []
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    
+    @validator('color')
+    def validate_color(cls, v, values):
+        """Validate that Legend cards can have up to 2 colors, others can have only 1"""
+        card_type = values.get('card_type')
+        
+        if isinstance(v, list):
+            if card_type == CardType.LEGEND:
+                if len(v) > 2:
+                    raise ValueError('Legend cards can have at most 2 colors')
+            else:
+                raise ValueError(f'{card_type} cards can only have 1 color, not a list')
+        else:
+            # Single color is always valid
+            pass
+            
+        return v
 
 class SetInfoModel(BaseModel):
     set_code: str = Field(..., pattern=r'^[A-Z]{2,3}$')
@@ -311,8 +328,6 @@ async def get_cards(
             filter_query["set_code"] = set_code
         if card_type:
             filter_query["card_type"] = card_type
-        if color:
-            filter_query["color"] = color
         if rarity:
             filter_query["rarity"] = rarity
         if variant:
@@ -324,6 +339,9 @@ async def get_cards(
             if max_cost is not None:
                 cost_filter["$lte"] = max_cost
             filter_query["cost"] = cost_filter
+        
+        if color:
+            filter_query["color"] = color
         
         # If no limit specified, get all cards
         if limit:
@@ -463,7 +481,7 @@ async def scan_cards_directory():
                                 set_name=set_folder,
                                 set_code=set_code,
                                 card_type=CardType.SPELL,  # Default, user should update
-                                color=[CardColor.COLORLESS],  # Default, user should update
+                                color=CardColor.COLORLESS,  # Default, user should update
                                 cost=0,  # Default, user should update
                                 rarity=CardRarity.COMMON,  # Default, user should update
                                 collector_number=collector_number,
