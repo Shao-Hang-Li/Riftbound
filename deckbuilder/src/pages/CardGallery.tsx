@@ -252,11 +252,11 @@ const CardGallery: React.FC = () => {
           >
             <div className="flex flex-col lg:flex-row">
               {/* Left Side - Card Image */}
-              <div className="lg:w-1/2 p-6 flex justify-center">
+              <div className="lg:w-1/2 p-4 flex justify-center">
                 <img
                   src={`/cards/${selectedCard.set_name}/${selectedCard.image_path}`}
                   alt={selectedCard.name}
-                  className="w-full max-w-sm h-auto rounded-lg shadow-lg"
+                  className="w-64 h-auto rounded-lg shadow-lg object-contain"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.src = 'https://via.placeholder.com/300x400?text=Card+Image';
@@ -265,10 +265,10 @@ const CardGallery: React.FC = () => {
               </div>
 
               {/* Right Side - Card Details */}
-              <div className="lg:w-1/2 p-6 space-y-4">
+              <div className="lg:w-1/2 p-4">
                 {/* Header */}
-                <div className="flex justify-between items-start">
-                  <h2 className="text-2xl font-bold text-primary">{selectedCard.name}</h2>
+                <div className="flex justify-between items-start mb-4">
+                  <h2 className="text-xl font-bold text-primary">{selectedCard.name}</h2>
                   <button
                     onClick={() => setSelectedCard(null)}
                     className="btn btn-ghost btn-sm btn-circle"
@@ -279,34 +279,65 @@ const CardGallery: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Card Info Grid */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-base-content/70">Cost</label>
-                    <div className="input input-bordered bg-base-200 text-center font-bold text-lg">
-                      {selectedCard.cost}
-                    </div>
-                  </div>
+                {/* Card Header Bar */}
+                <div className="bg-primary text-primary-content p-2 rounded mb-4 text-center font-semibold">
+                  {selectedCard.card_id} {selectedCard.name}
+                </div>
 
-                  {selectedCard.might && selectedCard.might > 0 && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-base-content/70">Might</label>
-                      <div className="input input-bordered bg-base-200 text-center font-bold text-lg">
-                        {selectedCard.might}
+                {/* Compact Card Properties */}
+                <div className="space-y-3">
+                  {/* Description First */}
+                  {selectedCard.description && (
+                    <div>
+                      <label className="text-sm font-semibold text-base-content/70 block mb-1">Description</label>
+                      <div className="bg-base-200 p-2 rounded text-sm min-h-[40px]">
+                        {selectedCard.description}
                       </div>
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-base-content/70">Type</label>
-                    <div className="input input-bordered bg-base-200 text-center">
-                      {selectedCard.card_type}
+                  {/* Basic Stats - Compact Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-sm font-semibold text-base-content/70 block mb-1">Name</label>
+                      <div className="bg-base-200 p-2 rounded text-sm font-medium">
+                        {selectedCard.name}
+                      </div>
+                    </div>
+
+                    {selectedCard.might && selectedCard.might > 0 && (
+                      <div>
+                        <label className="text-sm font-semibold text-base-content/70 block mb-1">Might</label>
+                        <div className="bg-base-200 p-2 rounded text-sm font-medium text-center">
+                          {selectedCard.might}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cost and Card Type Row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {selectedCard.cost !== undefined && selectedCard.cost !== null && (
+                      <div>
+                        <label className="text-sm font-semibold text-base-content/70 block mb-1">Cost</label>
+                        <div className="bg-base-200 p-2 rounded text-sm font-medium text-center">
+                          {selectedCard.cost}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-sm font-semibold text-base-content/70 block mb-1">Card type</label>
+                      <div className="bg-base-200 p-2 rounded text-sm font-medium text-center">
+                        {selectedCard.card_type}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-base-content/70">Rarity</label>
-                    <div className={`badge badge-lg ${
+                  {/* Rarity */}
+                  <div>
+                    <label className="text-sm font-semibold text-base-content/70 block mb-1">Rarity</label>
+                    <div className={`badge badge-lg text-base-100 ${
                       selectedCard.rarity === 'Common' ? 'badge-ghost' :
                       selectedCard.rarity === 'Uncommon' ? 'badge-info' :
                       selectedCard.rarity === 'Rare' ? 'badge-primary' :
@@ -316,80 +347,48 @@ const CardGallery: React.FC = () => {
                       {selectedCard.rarity}
                     </div>
                   </div>
+
+                  {/* Subtypes */}
+                  {selectedCard.subtype && selectedCard.subtype.length > 0 && (
+                    <div>
+                      <label className="text-sm font-semibold text-base-content/70 block mb-1">Subtypes</label>
+                      <div className="flex gap-2">
+                        {selectedCard.subtype.map((subtype, index) => (
+                          <div key={index} className="badge badge-outline badge-sm">
+                            {subtype}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Keywords */}
+                  {selectedCard.keywords && selectedCard.keywords.length > 0 && (
+                    <div>
+                      <label className="text-sm font-semibold text-base-content/70 block mb-1">Keywords</label>
+                      <div className="flex gap-2">
+                        {selectedCard.keywords.map(keyword => (
+                          <div key={keyword} className="badge badge-primary badge-sm">
+                            {keyword}
+                        </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Flavor Text */}
+                  {selectedCard.flavor_text && (
+                    <div>
+                      <label className="text-sm font-semibold text-base-content/70 block mb-1">Flavor Text</label>
+                      <div className="bg-base-200 p-2 rounded text-sm italic min-h-[40px]">
+                        "{selectedCard.flavor_text}"
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Colors */}
-                {selectedCard.color && selectedCard.color.length > 0 && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-base-content/70">Colors</label>
-                    <div className="flex gap-2">
-                      {selectedCard.color.map(color => (
-                        <div key={color} className={`badge badge-lg ${
-                          color === 'Fury' ? 'badge-error' :
-                          color === 'Calm' ? 'badge-info' :
-                          color === 'Mind' ? 'badge-accent' :
-                          color === 'Body' ? 'badge-success' :
-                          color === 'Chaos' ? 'badge-warning' :
-                          color === 'Order' ? 'badge-ghost' :
-                          'badge-neutral'
-                        }`}>
-                          {color}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Subtypes */}
-                {selectedCard.subtype && selectedCard.subtype.length > 0 && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-base-content/70">Subtypes</label>
-                    <div className="flex gap-2">
-                      {selectedCard.subtype.map((subtype, index) => (
-                        <div key={index} className="badge badge-outline badge-lg">
-                          {subtype}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Keywords */}
-                {selectedCard.keywords && selectedCard.keywords.length > 0 && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-base-content/70">Keywords</label>
-                    <div className="flex gap-2">
-                      {selectedCard.keywords.map(keyword => (
-                        <div key={keyword} className="badge badge-primary badge-lg">
-                          {keyword}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Description */}
-                {selectedCard.description && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-base-content/70">Description</label>
-                    <div className="input input-bordered bg-base-200 min-h-[60px] text-sm">
-                      {selectedCard.description}
-                    </div>
-                  </div>
-                )}
-
-                {/* Flavor Text */}
-                {selectedCard.flavor_text && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-base-content/70">Flavor Text</label>
-                    <div className="input input-bordered bg-base-200 min-h-[60px] text-sm italic">
-                      "{selectedCard.flavor_text}"
-                    </div>
-                  </div>
-                )}
-
                 {/* Footer Info */}
-                <div className="pt-4 border-t border-base-300">
+                <div className="pt-3 border-t border-base-300 mt-4">
                   <div className="flex justify-between items-center text-sm text-base-content/70">
                     <span>ID: {selectedCard.card_id}</span>
                     {selectedCard.artist && <span>Artist: {selectedCard.artist}</span>}

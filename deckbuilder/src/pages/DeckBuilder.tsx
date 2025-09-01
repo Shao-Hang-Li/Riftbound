@@ -14,7 +14,9 @@ const DeckBuilder: React.FC = () => {
     card_type_distribution: {
       Spell: 0,
       Unit: 0,
-      Champion: 0,
+      "Champion Unit": 0,
+      "Signature Unit": 0,
+      "Signature Spell": 0,
       Legend: 0,
       Battlefield: 0,
       Gear: 0,
@@ -86,7 +88,9 @@ const DeckBuilder: React.FC = () => {
         card_type_distribution: {
           Spell: 0,
           Unit: 0,
-          Champion: 0,
+          "Champion Unit": 0,
+          "Signature Unit": 0,
+          "Signature Spell": 0,
           Legend: 0,
           Battlefield: 0,
           Gear: 0,
@@ -108,7 +112,9 @@ const DeckBuilder: React.FC = () => {
     const typeDistribution = {
       Spell: 0,
       Unit: 0,
-      Champion: 0,
+      "Champion Unit": 0,
+      "Signature Unit": 0,
+      "Signature Spell": 0,
       Legend: 0,
       Battlefield: 0,
       Gear: 0,
@@ -226,7 +232,7 @@ const DeckBuilder: React.FC = () => {
       return;
     }
 
-    // Handle regular cards (Spell, Unit, Champion, Gear, Token)
+          // Handle regular cards (Spell, Unit, Champion Unit, Gear, Token)
     if (deck.card_ids.length >= 40) {
       setErrorModal({
         isOpen: true,
@@ -409,16 +415,18 @@ const DeckBuilder: React.FC = () => {
            deck_colors: [],
            total_cost: 0,
            average_cost: 0,
-           card_type_distribution: {
-             Spell: 0,
-             Unit: 0,
-             Champion: 0,
-             Legend: 0,
-             Battlefield: 0,
-             Gear: 0,
-             Rune: 0,
-             Token: 0
-           }
+                   card_type_distribution: {
+          Spell: 0,
+          Unit: 0,
+          "Champion Unit": 0,
+          "Signature Unit": 0,
+          "Signature Spell": 0,
+          Legend: 0,
+          Battlefield: 0,
+          Gear: 0,
+          Rune: 0,
+          Token: 0
+        }
          };
          setDeck(resetDeck);
          setSpecialCards({
@@ -667,7 +675,9 @@ const DeckBuilder: React.FC = () => {
                        />
                        <div className="flex-1 min-w-0">
                          <h5 className="font-semibold text-xs truncate">{card.name}</h5>
-                         <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
+                         {card.cost !== undefined && card.cost !== null && (
+                           <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
+                         )}
                        </div>
                        <button
                          className="btn btn-ghost btn-xs text-error hover:bg-error hover:text-error-content"
@@ -705,7 +715,9 @@ const DeckBuilder: React.FC = () => {
                    />
                    <div className="flex-1 min-w-0">
                      <h5 className="font-semibold text-xs truncate">{specialCards.legend.name}</h5>
-                     <p className="text-xs text-base-content/50">Cost: {specialCards.legend.cost}</p>
+                     {specialCards.legend.cost !== undefined && specialCards.legend.cost !== null && (
+                       <p className="text-xs text-base-content/50">Cost: {specialCards.legend.cost}</p>
+                     )}
                    </div>
                    <button
                      className="btn btn-ghost btn-xs text-error hover:bg-error hover:text-error-content"
@@ -743,7 +755,9 @@ const DeckBuilder: React.FC = () => {
                        />
                        <div className="flex-1 min-w-0">
                          <h5 className="font-semibold text-xs truncate">{card.name}</h5>
-                         <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
+                         {card.cost !== undefined && card.cost !== null && (
+                           <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
+                         )}
                        </div>
                        <button
                          className="btn btn-ghost btn-xs text-error hover:bg-error hover:text-error-content"
@@ -785,7 +799,9 @@ const DeckBuilder: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-sm truncate">{card.name}</h4>
                       <p className="text-xs text-base-content/70">{card.card_type}</p>
-                      <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
+                      {card.cost !== undefined && card.cost !== null && (
+                        <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
+                      )}
                     </div>
                                          <div className="flex items-center gap-2">
                        {/* Quantity Controls */}

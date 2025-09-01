@@ -234,7 +234,9 @@ const DeckViewer: React.FC = () => {
                           <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-sm truncate">{card.name}</h4>
                             <p className="text-xs text-base-content/70">{card.card_type}</p>
-                            <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
+                            {card.cost !== undefined && card.cost !== null && (
+                              <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
+                            )}
                           </div>
                                                      <div className="flex items-center gap-2">
                              <span className="badge badge-primary badge-sm min-w-[2rem]">x{count}</span>
