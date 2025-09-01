@@ -252,16 +252,19 @@ const CardGallery: React.FC = () => {
           >
             <div className="flex flex-col lg:flex-row">
               {/* Left Side - Card Image */}
-              <div className="lg:w-1/2 p-4 flex justify-center">
-                <img
-                  src={`/cards/${selectedCard.set_name}/${selectedCard.image_path}`}
-                  alt={selectedCard.name}
-                  className="w-64 h-auto rounded-lg shadow-lg object-contain"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = 'https://via.placeholder.com/300x400?text=Card+Image';
-                  }}
-                />
+              <div className="lg:w-1/2 p-4 flex justify-center items-center bg-white rounded-lg">
+                <div className="relative">
+                  <img
+                    src={`/cards/${selectedCard.set_name}/${selectedCard.image_path}`}
+                    alt={selectedCard.name}
+                    className="w-64 h-auto rounded-lg shadow-xl object-contain max-h-[500px]"
+                    style={{ maxWidth: '256px', height: 'auto' }}
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = 'https://via.placeholder.com/300x400?text=Card+Image';
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Right Side - Card Details */}
