@@ -122,19 +122,18 @@ async def extract_card_metadata(filename: str, set_folder: str) -> Optional[Dict
         "set_code": set_code,
         "set_release_date": set_info["release_date"],
         "card_type": "Spell",  # Default, will need manual update
-        "card_subtype": None,
+        "subtype_1": None,
+        "subtype_2": None,
         "color": ["Colorless"],  # Default, will need manual update
         "cost": 0,  # Default, will need manual update
-        "rarity": "Common",  # Default, will need manual update
-        "power": None,
-        "toughness": None,
+        "rarity": "Common",  # Default, will need manual update - options: Common, Uncommon, Rare, Epic, Overnumbered
+        "might": None,
         "description": None,
         "flavor_text": None,
         "artist": None,
         "collector_number": collector_number,
         "variant": variant_type,  # Use the proper variant type
-        "is_legendary": False,
-        "is_mythic": False,
+
         "keywords": [],
         "created_at": datetime.now(),
         "updated_at": datetime.now()

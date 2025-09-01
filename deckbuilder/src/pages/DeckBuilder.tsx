@@ -22,6 +22,17 @@ const DeckBuilder: React.FC = () => {
       Token: 0
     }
   });
+
+  // Separate state for special cards (not counted in 40-card limit)
+  const [specialCards, setSpecialCards] = useState<{
+    battlefield: Card[];
+    rune: Card[];
+    legend: Card | null;
+  }>({
+    battlefield: [],
+    rune: [],
+    legend: null
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSet, setSelectedSet] = useState('all');
@@ -138,6 +149,84 @@ const DeckBuilder: React.FC = () => {
 
   // Add card to deck
   const addCardToDeck = async (card: Card) => {
+    // Handle special card types separately
+    if (card.card_type === 'Battlefield') {
+      if (specialCards.battlefield.length >= 3) {
+        setErrorModal({
+          isOpen: true,
+          title: 'Battlefield Limit Reached',
+          message: 'You must have exactly 3 Battlefield cards.',
+          type: 'warning'
+        });
+        return;
+      }
+      
+      // Check if this card is already in battlefield
+      if (specialCards.battlefield.some(c => c.card_id === card.card_id)) {
+        setErrorModal({
+          isOpen: true,
+          title: 'Card Already Added',
+          message: 'This Battlefield card is already in your deck.',
+          type: 'warning'
+        });
+        return;
+      }
+      
+      setSpecialCards(prev => ({
+        ...prev,
+        battlefield: [...prev.battlefield, card]
+      }));
+      return;
+    }
+
+    if (card.card_type === 'Rune') {
+      if (specialCards.rune.length >= 12) {
+        setErrorModal({
+          isOpen: true,
+          title: 'Rune Limit Reached',
+          message: 'You can have up to 12 Rune cards.',
+          type: 'warning'
+        });
+        return;
+      }
+      
+      // Check if this card is already in rune (max 1 copy)
+      if (specialCards.rune.some(c => c.card_id === card.card_id)) {
+        setErrorModal({
+          isOpen: true,
+          title: 'Card Already Added',
+          message: 'This Rune card is already in your deck.',
+          type: 'warning'
+        });
+        return;
+      }
+      
+      setSpecialCards(prev => ({
+        ...prev,
+        rune: [...prev.rune, card]
+      }));
+      return;
+    }
+
+    if (card.card_type === 'Legend') {
+      if (specialCards.legend) {
+        setErrorModal({
+          isOpen: true,
+          title: 'Legend Limit Reached',
+          message: 'You must have exactly 1 Legend card.',
+          type: 'warning'
+        });
+        return;
+      }
+      
+      setSpecialCards(prev => ({
+        ...prev,
+        legend: card
+      }));
+      return;
+    }
+
+    // Handle regular cards (Spell, Unit, Champion, Gear, Token)
     if (deck.card_ids.length >= 40) {
       setErrorModal({
         isOpen: true,
@@ -159,24 +248,6 @@ const DeckBuilder: React.FC = () => {
       return;
     }
 
-    // Check Legend rule - only 1 Legend allowed per deck
-    if (card.card_type === 'Legend') {
-      const existingLegend = deck.card_ids.some(cardId => {
-        const existingCard = cards.find(c => c.card_id === cardId);
-        return existingCard?.card_type === 'Legend';
-      });
-      
-      if (existingLegend) {
-        setErrorModal({
-          isOpen: true,
-          title: 'Legend Rule Violation',
-          message: 'You can only have 1 Legend card in your deck.',
-          type: 'error'
-        });
-        return;
-      }
-    }
-
     const newCardIds = [...deck.card_ids, card.card_id];
     const newDeck = {
       ...deck,
@@ -195,6 +266,18 @@ const DeckBuilder: React.FC = () => {
       ...calculateDeckStats(newCardIds)
     };
     setDeck(newDeck);
+  };
+
+  // Remove special card
+  const removeSpecialCard = (cardType: 'battlefield' | 'rune' | 'legend', cardId: string) => {
+    if (cardType === 'legend') {
+      setSpecialCards(prev => ({ ...prev, legend: null }));
+    } else {
+      setSpecialCards(prev => ({
+        ...prev,
+        [cardType]: prev[cardType].filter(card => card.card_id !== cardId)
+      }));
+    }
   };
 
   // Change card quantity in deck
@@ -244,6 +327,37 @@ const DeckBuilder: React.FC = () => {
       return;
     }
 
+    // Validate special card requirements
+    if (specialCards.battlefield.length !== 3) {
+      setErrorModal({
+        isOpen: true,
+        title: 'Invalid Deck',
+        message: 'You must have exactly 3 Battlefield cards.',
+        type: 'error'
+      });
+      return;
+    }
+
+         if (!specialCards.legend) {
+       setErrorModal({
+         isOpen: true,
+         title: 'Invalid Deck',
+         message: 'You must have exactly 1 Legend card.',
+         type: 'error'
+       });
+       return;
+     }
+
+     if (specialCards.rune.length !== 12) {
+       setErrorModal({
+         isOpen: true,
+         title: 'Invalid Deck',
+         message: 'You must have exactly 12 Rune cards.',
+         type: 'error'
+       });
+       return;
+     }
+
     if (deck.card_ids.length === 0) {
       setErrorModal({
         isOpen: true,
@@ -255,6 +369,14 @@ const DeckBuilder: React.FC = () => {
     }
 
     try {
+      // Combine regular deck cards with special cards
+      const allCardIds = [
+        ...deck.card_ids,
+        ...specialCards.battlefield.map(c => c.card_id),
+        ...specialCards.rune.map(c => c.card_id),
+        specialCards.legend.card_id
+      ];
+
       const response = await fetch('/decks', {
         method: 'POST',
         headers: {
@@ -263,7 +385,7 @@ const DeckBuilder: React.FC = () => {
         body: JSON.stringify({
           name: deckName,
           description: deckDescription,
-          card_ids: deck.card_ids,
+          card_ids: allCardIds,
           deck_colors: deck.deck_colors,
           total_cost: deck.total_cost,
           average_cost: deck.average_cost,
@@ -279,28 +401,33 @@ const DeckBuilder: React.FC = () => {
           message: 'Deck saved successfully!',
           type: 'success'
         });
-        // Reset deck
-        const resetDeck = {
-          name: '',
-          description: '',
-          card_ids: [],
-          deck_colors: [],
-          total_cost: 0,
-          average_cost: 0,
-          card_type_distribution: {
-            Spell: 0,
-            Unit: 0,
-            Champion: 0,
-            Legend: 0,
-            Battlefield: 0,
-            Gear: 0,
-            Rune: 0,
-            Token: 0
-          }
-        };
-        setDeck(resetDeck);
-        setDeckName('My New Deck');
-        setDeckDescription('');
+                 // Reset deck and special cards
+         const resetDeck = {
+           name: '',
+           description: '',
+           card_ids: [],
+           deck_colors: [],
+           total_cost: 0,
+           average_cost: 0,
+           card_type_distribution: {
+             Spell: 0,
+             Unit: 0,
+             Champion: 0,
+             Legend: 0,
+             Battlefield: 0,
+             Gear: 0,
+             Rune: 0,
+             Token: 0
+           }
+         };
+         setDeck(resetDeck);
+         setSpecialCards({
+           battlefield: [],
+           rune: [],
+           legend: null
+         });
+         setDeckName('My New Deck');
+         setDeckDescription('');
       } else {
         const errorData = await response.json();
         setErrorModal({
@@ -352,7 +479,7 @@ const DeckBuilder: React.FC = () => {
       {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold text-primary mb-2">Deck Builder</h1>
-        <p className="text-lg text-base-content/70">Build your perfect deck (Max 40 cards, Max 3 copies per card, Max 1 Legend)</p>
+                 <p className="text-lg text-base-content/70">Build your perfect deck (40 main cards + 3 Battlefield + 1 Legend + 12 Rune)</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -511,9 +638,130 @@ const DeckBuilder: React.FC = () => {
             </button>
           </div>
 
-          {/* Current Deck */}
-          <div className="bg-base-200 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold mb-3">Current Deck</h3>
+                     {/* Special Cards Section */}
+           <div className="bg-base-200 p-4 rounded-lg space-y-4">
+             <h3 className="text-lg font-semibold">Special Cards</h3>
+             
+             {/* Battlefield Cards - Must have exactly 3 */}
+             <div>
+               <h4 className="font-medium text-sm mb-2">
+                 Battlefield Cards ({specialCards.battlefield.length}/3)
+                 <span className="text-error ml-2">*Required</span>
+               </h4>
+               {specialCards.battlefield.length === 0 ? (
+                 <div className="text-center py-4 text-base-content/50 text-sm">
+                   Add 3 Battlefield cards
+                 </div>
+               ) : (
+                 <div className="space-y-2">
+                   {specialCards.battlefield.map((card) => (
+                     <div key={card.card_id} className="flex items-center gap-2 p-2 bg-base-100 rounded-lg">
+                       <img
+                         src={`/image/${card.set_name}/${card.image_path}`}
+                         alt={card.name}
+                         className="w-10 h-12 object-cover rounded"
+                         onError={(e) => {
+                           const target = e.target as HTMLImageElement;
+                           target.src = 'https://via.placeholder.com/40x48?text=Card';
+                         }}
+                       />
+                       <div className="flex-1 min-w-0">
+                         <h5 className="font-semibold text-xs truncate">{card.name}</h5>
+                         <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
+                       </div>
+                       <button
+                         className="btn btn-ghost btn-xs text-error hover:bg-error hover:text-error-content"
+                         onClick={() => removeSpecialCard('battlefield', card.card_id)}
+                         title="Remove Battlefield card"
+                       >
+                         ✕
+                       </button>
+                     </div>
+                   ))}
+                 </div>
+               )}
+             </div>
+
+             {/* Legend Card - Must have exactly 1 */}
+             <div>
+               <h4 className="font-medium text-sm mb-2">
+                 Legend Card ({specialCards.legend ? '1' : '0'}/1)
+                 <span className="text-error ml-2">*Required</span>
+               </h4>
+               {!specialCards.legend ? (
+                 <div className="text-center py-4 text-base-content/50 text-sm">
+                   Add 1 Legend card
+                 </div>
+               ) : (
+                 <div className="flex items-center gap-2 p-2 bg-base-100 rounded-lg">
+                   <img
+                     src={`/image/${specialCards.legend.set_name}/${specialCards.legend.image_path}`}
+                     alt={specialCards.legend.name}
+                     className="w-10 h-12 object-cover rounded"
+                     onError={(e) => {
+                       const target = e.target as HTMLImageElement;
+                       target.src = 'https://via.placeholder.com/40x48?text=Card';
+                     }}
+                   />
+                   <div className="flex-1 min-w-0">
+                     <h5 className="font-semibold text-xs truncate">{specialCards.legend.name}</h5>
+                     <p className="text-xs text-base-content/50">Cost: {specialCards.legend.cost}</p>
+                   </div>
+                   <button
+                     className="btn btn-ghost btn-xs text-error hover:bg-error hover:text-error-content"
+                     onClick={() => removeSpecialCard('legend', specialCards.legend!.card_id)}
+                     title="Remove Legend card"
+                   >
+                     ✕
+                   </button>
+                 </div>
+               )}
+             </div>
+
+             {/* Rune Cards - Must have exactly 12 */}
+             <div>
+               <h4 className="font-medium text-sm mb-2">
+                 Rune Cards ({specialCards.rune.length}/12)
+                 <span className="text-error ml-2">*Required</span>
+               </h4>
+               {specialCards.rune.length === 0 ? (
+                 <div className="text-center py-4 text-base-content/50 text-sm">
+                   Add exactly 12 Rune cards
+                 </div>
+               ) : (
+                 <div className="space-y-2 max-h-32 overflow-y-auto">
+                   {specialCards.rune.map((card) => (
+                     <div key={card.card_id} className="flex items-center gap-2 p-2 bg-base-100 rounded-lg">
+                       <img
+                         src={`/image/${card.set_name}/${card.image_path}`}
+                         alt={card.name}
+                         className="w-10 h-12 object-cover rounded"
+                         onError={(e) => {
+                           const target = e.target as HTMLImageElement;
+                           target.src = 'https://via.placeholder.com/40x48?text=Card';
+                         }}
+                       />
+                       <div className="flex-1 min-w-0">
+                         <h5 className="font-semibold text-xs truncate">{card.name}</h5>
+                         <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
+                       </div>
+                       <button
+                         className="btn btn-ghost btn-xs text-error hover:bg-error hover:text-error-content"
+                         onClick={() => removeSpecialCard('rune', card.card_id)}
+                         title="Remove Rune card"
+                       >
+                         ✕
+                       </button>
+                     </div>
+                   ))}
+                 </div>
+               )}
+             </div>
+           </div>
+
+           {/* Current Deck */}
+           <div className="bg-base-200 p-4 rounded-lg">
+             <h3 className="text-lg font-semibold mb-3">Main Deck ({deck.card_ids.length}/40)</h3>
             
             {deckCardsWithCount.length === 0 ? (
               <div className="text-center py-8 text-base-content/70">

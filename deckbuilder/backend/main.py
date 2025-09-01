@@ -148,19 +148,17 @@ class CardModel(BaseModel):
     set_code: str = Field(..., pattern=r'^[A-Z]{2,3}$')  # e.g., "OGN"
     set_release_date: Optional[str] = None
     card_type: CardType
-    card_subtype: Optional[str] = None
+    subtype_1: Optional[str] = None
+    subtype_2: Optional[str] = None
     color: List[CardColor]
     cost: int = Field(..., ge=0, le=7)  # 0 to 7+
     rarity: CardRarity
-    power: Optional[int] = Field(None, ge=0)
-    toughness: Optional[int] = Field(None, ge=0)
+    might: Optional[int] = Field(None, ge=0)
     description: Optional[str] = None
     flavor_text: Optional[str] = None
     artist: Optional[str] = None
     collector_number: str
     variant: Optional[str] = "regular"  # "regular", "alt_art", or "signature"
-    is_legendary: bool = False
-    is_mythic: bool = False
     keywords: Optional[List[str]] = []
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

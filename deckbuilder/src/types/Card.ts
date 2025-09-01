@@ -7,18 +7,16 @@ export interface Card {
   set_code: string; // e.g., "OGN", "OGS"
   set_release_date?: string; // ISO date string
   card_type: CardType;
-  card_subtype?: string; // e.g., "Human Warrior", "Fire Spell"
+  subtype_1?: string; // e.g., "Human", "Fire"
+  subtype_2?: string; // e.g., "Warrior", "Spell"
   color: CardColor[];
   cost: number; // 0 to 7+
   rarity: CardRarity;
-  power?: number; // For Units
-  toughness?: number; // For Units
+  might?: number; // For Units
   description?: string;
   flavor_text?: string;
   artist?: string;
   collector_number: string; // e.g., "001", "002"
-  is_legendary?: boolean;
-  is_mythic?: boolean;
   keywords?: string[]; // e.g., ["Flying", "First Strike"]
   created_at?: string;
   updated_at?: string;
