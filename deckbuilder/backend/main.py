@@ -117,6 +117,8 @@ class CardType(str, Enum):
     SPELL = "Spell"
     UNIT = "Unit"
     CHAMPION_UNIT = "Champion Unit"
+    SIGNATURE_UNIT = "Signature Unit"
+    SIGNATURE_SPELL = "Signature Spell"
     LEGEND = "Legend"
     BATTLEFIELD = "Battlefield"
     GEAR = "Gear"
@@ -150,7 +152,7 @@ class CardModel(BaseModel):
     card_type: CardType
     subtype: List[str] = []
     color: List[CardColor] = []
-    cost: int = Field(..., ge=0, le=7)  # 0 to 7+
+    cost: int = Field(..., ge=0, le=12)  # 0 to 12
     rarity: CardRarity
     might: int = Field(0, ge=0)
     description: str = ""
@@ -171,12 +173,12 @@ class CardModel(BaseModel):
     
     @validator('color')
     def validate_color(cls, v, values):
-        """Validate that only Legend cards can have 2 colors"""
+        """Validate that only Legend, Signature Unit, and Signature Spell cards can have 2 colors"""
         card_type = values.get('card_type')
         
         if len(v) > 2:
             raise ValueError('Cards can have at most 2 colors')
-        elif len(v) > 1 and card_type != CardType.LEGEND:
+        elif len(v) > 1 and card_type not in [CardType.LEGEND, CardType.SIGNATURE_UNIT, CardType.SIGNATURE_SPELL]:
             raise ValueError(f'{card_type} cards can only have 1 color, not {len(v)}')
             
         return v
@@ -866,14 +868,14 @@ async def create_deck(deck: DeckModel):
             if card_counts[card_id] > 3:
                 raise HTTPException(status_code=400, detail=f"Cannot have more than 3 copies of {card_id}")
         
-        # Check Legend rule - only 1 Legend allowed per deck
-        legend_count = 0
+        # Check Legend rule - only 1 Legend, Signature Unit, or Signature Spell allowed per deck
+        special_card_count = 0
         for card_id in deck.card_ids:
             card = await cards_collection.find_one({"card_id": card_id})
-            if card and card.get("card_type") == "Legend":
-                legend_count += 1
-                if legend_count > 1:
-                    raise HTTPException(status_code=400, detail="You can only have 1 Legend card in your deck")
+            if card and card.get("card_type") in ["Legend", "Signature Unit", "Signature Spell"]:
+                special_card_count += 1
+                if special_card_count > 1:
+                    raise HTTPException(status_code=400, detail="You can only have 1 Legend, Signature Unit, or Signature Spell card in your deck")
         
         # Set timestamps
         deck.created_at = datetime.now()
@@ -947,15 +949,15 @@ async def add_card_to_deck(deck_id: str, card_id: str):
         if current_count >= 3:
             raise HTTPException(status_code=400, detail=f"Cannot have more than 3 copies of {card_id}")
         
-        # Check Legend rule - only 1 Legend allowed per deck
-        if card.get("card_type") == "Legend":
-            existing_legend_count = 0
+        # Check Legend rule - only 1 Legend, Signature Unit, or Signature Spell allowed per deck
+        if card.get("card_type") in ["Legend", "Signature Unit", "Signature Spell"]:
+            existing_special_count = 0
             for existing_card_id in deck["card_ids"]:
                 existing_card = await cards_collection.find_one({"card_id": existing_card_id})
-                if existing_card and existing_card.get("card_type") == "Legend":
-                    existing_legend_count += 1
-                    if existing_legend_count >= 1:
-                        raise HTTPException(status_code=400, detail="You can only have 1 Legend card in your deck")
+                if existing_card and existing_card.get("card_type") in ["Legend", "Signature Unit", "Signature Spell"]:
+                    existing_special_count += 1
+                    if existing_special_count >= 1:
+                        raise HTTPException(status_code=400, detail="You can only have 1 Legend, Signature Unit, or Signature Spell card in your deck")
         
         # Add card to deck
         await decks_collection.update_one(

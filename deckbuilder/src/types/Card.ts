@@ -37,7 +37,9 @@ export interface Deck {
 export type CardType = 
   | "Spell"
   | "Unit"
-  | "Champion"
+  | "Champion Unit"
+  | "Signature Unit"
+  | "Signature Spell"
   | "Legend"
   | "Battlefield"
   | "Gear"
