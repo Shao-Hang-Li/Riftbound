@@ -348,33 +348,38 @@ const CardGallery: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Subtypes */}
-                  {selectedCard.subtype && selectedCard.subtype.length > 0 && (
-                    <div>
-                      <label className="text-sm font-semibold text-base-content/70 block mb-1">Subtypes</label>
-                      <div className="flex gap-2">
-                        {selectedCard.subtype.map((subtype, index) => (
-                          <div key={index} className="badge badge-outline badge-sm">
-                            {subtype}
+                  {/* Subtypes and Keywords on same line */}
+                  {(selectedCard.subtype && selectedCard.subtype.length > 0) || (selectedCard.keywords && selectedCard.keywords.length > 0) ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Subtypes */}
+                      {selectedCard.subtype && selectedCard.subtype.length > 0 && (
+                        <div>
+                          <label className="text-sm font-semibold text-base-content/70 block mb-1">Subtypes</label>
+                          <div className="flex gap-2">
+                            {selectedCard.subtype.map((subtype, index) => (
+                              <div key={index} className="badge badge-outline badge-sm">
+                                {subtype}
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Keywords */}
-                  {selectedCard.keywords && selectedCard.keywords.length > 0 && (
-                    <div>
-                      <label className="text-sm font-semibold text-base-content/70 block mb-1">Keywords</label>
-                      <div className="flex gap-2">
-                        {selectedCard.keywords.map(keyword => (
-                          <div key={keyword} className="badge badge-primary badge-sm">
-                            {keyword}
                         </div>
-                        ))}
-                      </div>
+                      )}
+
+                      {/* Keywords */}
+                      {selectedCard.keywords && selectedCard.keywords.length > 0 && (
+                        <div>
+                          <label className="text-sm font-semibold text-base-content/70 block mb-1">Keywords</label>
+                          <div className="flex gap-2">
+                            {selectedCard.keywords.map(keyword => (
+                              <div key={keyword} className="badge badge-primary badge-sm">
+                                {keyword}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Flavor Text */}
                   {selectedCard.flavor_text && (
