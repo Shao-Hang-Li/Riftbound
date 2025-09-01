@@ -252,7 +252,7 @@ const CardGallery: React.FC = () => {
           >
             <div className="flex flex-col lg:flex-row">
               {/* Left Side - Card Image */}
-              <div className="lg:w-1/2 p-4 flex justify-center items-center bg-white rounded-lg">
+              <div className="lg:w-1/2 p-4 flex justify-center items-center bg-base-100 rounded-lg">
                 <div className="relative">
                   <img
                     src={`/cards/${selectedCard.set_name}/${selectedCard.image_path}`}
