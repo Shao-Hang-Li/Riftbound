@@ -14,6 +14,7 @@ const CardGallery: React.FC = () => {
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
 
   // Fetch cards from MongoDB
   useEffect(() => {
@@ -219,58 +220,191 @@ const CardGallery: React.FC = () => {
       </div>
 
       {/* Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
         {filteredCards.map((card) => (
-          <div key={card.card_id} className="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow cursor-pointer">
-            <figure className="px-4 pt-4">
-                              <img
-                  src={`/cards/${card.set_name}/${card.image_path}`}
-                  alt={card.name}
-                  className="rounded-xl w-full h-auto object-contain"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = 'https://via.placeholder.com/300x400?text=Card+Image';
-                    target.src = 'https://via.placeholder.com/300x400?text=Card+Image';
-                  }}
-                />
-            </figure>
-            <div className="card-body p-4">
-              <h2 className="card-title text-sm font-bold">{card.name}</h2>
-              <div className="flex justify-between items-center mb-2">
-                <p className="text-xs text-base-content/70">{card.card_type}</p>
-                <div className="badge badge-secondary">{card.cost}</div>
-              </div>
-              <div className="flex flex-wrap gap-1 mb-2">
-                {card.color && card.color.map(color => (
-                  <div key={color} className={`badge badge-sm ${
-                    color === 'Fury' ? 'badge-error' :
-                    color === 'Calm' ? 'badge-info' :
-                    color === 'Mind' ? 'badge-accent' :
-                    color === 'Body' ? 'badge-success' :
-                    color === 'Chaos' ? 'badge-warning' :
-                    color === 'Order' ? 'badge-ghost' :
-                    'badge-neutral'
-                  }`}>
-                    {color}
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between items-center">
-                <div className={`badge badge-sm ${
-                  card.rarity === 'Common' ? 'badge-ghost' :
-                  card.rarity === 'Uncommon' ? 'badge-info' :
-                  card.rarity === 'Rare' ? 'badge-primary' :
-                  card.rarity === 'Epic' ? 'badge-secondary' :
-                  'badge-accent'
-                }`}>
-                  {card.rarity}
-                </div>
-                <div className="badge badge-outline badge-sm">{card.card_id}</div>
-              </div>
-            </div>
+          <div 
+            key={card.card_id} 
+            className="cursor-pointer transform hover:scale-105 transition-transform duration-200"
+            onClick={() => setSelectedCard(card)}
+          >
+            <img
+              src={`/cards/${card.set_name}/${card.image_path}`}
+              alt={card.name}
+              className="w-full h-auto rounded-lg shadow-lg hover:shadow-xl"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = 'https://via.placeholder.com/300x400?text=Card+Image';
+              }}
+            />
           </div>
         ))}
       </div>
+
+      {/* Card Detail Modal */}
+      {selectedCard && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedCard(null)}
+        >
+          <div 
+            className="bg-base-100 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col lg:flex-row">
+              {/* Left Side - Card Image */}
+              <div className="lg:w-1/2 p-6 flex justify-center">
+                <img
+                  src={`/cards/${selectedCard.set_name}/${selectedCard.image_path}`}
+                  alt={selectedCard.name}
+                  className="w-full max-w-sm h-auto rounded-lg shadow-lg"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = 'https://via.placeholder.com/300x400?text=Card+Image';
+                  }}
+                />
+              </div>
+
+              {/* Right Side - Card Details */}
+              <div className="lg:w-1/2 p-6 space-y-4">
+                {/* Header */}
+                <div className="flex justify-between items-start">
+                  <h2 className="text-2xl font-bold text-primary">{selectedCard.name}</h2>
+                  <button
+                    onClick={() => setSelectedCard(null)}
+                    className="btn btn-ghost btn-sm btn-circle"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Card Info Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-base-content/70">Cost</label>
+                    <div className="input input-bordered bg-base-200 text-center font-bold text-lg">
+                      {selectedCard.cost}
+                    </div>
+                  </div>
+
+                  {selectedCard.might && selectedCard.might > 0 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-base-content/70">Might</label>
+                      <div className="input input-bordered bg-base-200 text-center font-bold text-lg">
+                        {selectedCard.might}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-base-content/70">Type</label>
+                    <div className="input input-bordered bg-base-200 text-center">
+                      {selectedCard.card_type}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-base-content/70">Rarity</label>
+                    <div className={`badge badge-lg ${
+                      selectedCard.rarity === 'Common' ? 'badge-ghost' :
+                      selectedCard.rarity === 'Uncommon' ? 'badge-info' :
+                      selectedCard.rarity === 'Rare' ? 'badge-primary' :
+                      selectedCard.rarity === 'Epic' ? 'badge-secondary' :
+                      'badge-accent'
+                    }`}>
+                      {selectedCard.rarity}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Colors */}
+                {selectedCard.color && selectedCard.color.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-base-content/70">Colors</label>
+                    <div className="flex gap-2">
+                      {selectedCard.color.map(color => (
+                        <div key={color} className={`badge badge-lg ${
+                          color === 'Fury' ? 'badge-error' :
+                          color === 'Calm' ? 'badge-info' :
+                          color === 'Mind' ? 'badge-accent' :
+                          color === 'Body' ? 'badge-success' :
+                          color === 'Chaos' ? 'badge-warning' :
+                          color === 'Order' ? 'badge-ghost' :
+                          'badge-neutral'
+                        }`}>
+                          {color}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Subtypes */}
+                {(selectedCard.subtype_1 || selectedCard.subtype_2) && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-base-content/70">Subtypes</label>
+                    <div className="flex gap-2">
+                      {selectedCard.subtype_1 && (
+                        <div className="badge badge-outline badge-lg">
+                          {selectedCard.subtype_1}
+                        </div>
+                      )}
+                      {selectedCard.subtype_2 && (
+                        <div className="badge badge-outline badge-lg">
+                          {selectedCard.subtype_2}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Keywords */}
+                {selectedCard.keywords && selectedCard.keywords.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-base-content/70">Keywords</label>
+                    <div className="flex gap-2">
+                      {selectedCard.keywords.map(keyword => (
+                        <div key={keyword} className="badge badge-primary badge-lg">
+                          {keyword}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Description */}
+                {selectedCard.description && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-base-content/70">Description</label>
+                    <div className="input input-bordered bg-base-200 min-h-[60px] text-sm">
+                      {selectedCard.description}
+                    </div>
+                  </div>
+                )}
+
+                {/* Flavor Text */}
+                {selectedCard.flavor_text && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-base-content/70">Flavor Text</label>
+                    <div className="input input-bordered bg-base-200 min-h-[60px] text-sm italic">
+                      "{selectedCard.flavor_text}"
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer Info */}
+                <div className="pt-4 border-t border-base-300">
+                  <div className="flex justify-between items-center text-sm text-base-content/70">
+                    <span>ID: {selectedCard.card_id}</span>
+                    {selectedCard.artist && <span>Artist: {selectedCard.artist}</span>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* No Results */}
       {filteredCards.length === 0 && !loading && (
