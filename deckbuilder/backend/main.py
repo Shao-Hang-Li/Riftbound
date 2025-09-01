@@ -321,26 +321,38 @@ async def add_card(card: CardModel):
 async def get_cards(
     set_code: Optional[str] = None,
     card_type: Optional[CardType] = None,
-    color: Optional[CardColor] = None,
-    rarity: Optional[CardRarity] = None,
+    color: Optional[str] = None,  # Can be single color or comma-separated colors
+    rarity: Optional[str] = None,  # Can be single rarity or comma-separated rarities
     variant: Optional[str] = None,
     min_cost: Optional[int] = None,
     max_cost: Optional[int] = None,
-    limit: Optional[int] = None
+    exact_cost: Optional[int] = None,  # Search for exact cost
+    search_text: Optional[str] = None,  # Search in name, description, flavor_text
+    limit: Optional[int] = None,
+    sort_by: Optional[str] = "name",  # Sort by: name, cost, rarity, set_code
+    sort_order: Optional[str] = "asc"  # asc or desc
 ):
-    """Get cards with optional filters"""
+    """Get cards with enhanced search and filtering capabilities"""
     try:
         # Build filter query
         filter_query = {}
+        
+        # Set filter
         if set_code:
             filter_query["set_code"] = set_code
+            
+        # Card type filter
         if card_type:
             filter_query["card_type"] = card_type
-        if rarity:
-            filter_query["rarity"] = rarity
+            
+        # Variant filter
         if variant:
             filter_query["variant"] = variant
-        if min_cost is not None or max_cost is not None:
+            
+        # Cost filters
+        if exact_cost is not None:
+            filter_query["cost"] = exact_cost
+        elif min_cost is not None or max_cost is not None:
             cost_filter = {}
             if min_cost is not None:
                 cost_filter["$gte"] = min_cost
@@ -348,19 +360,215 @@ async def get_cards(
                 cost_filter["$lte"] = max_cost
             filter_query["cost"] = cost_filter
         
+        # Color filter - support multiple colors (color is stored as array in DB)
         if color:
-            # Filter by color array containing the specified color
-            filter_query["color"] = color
+            colors = [c.strip() for c in color.split(',')]
+            if len(colors) == 1:
+                # Single color - check if card's color array contains this color
+                filter_query["color"] = colors[0]
+            else:
+                # Multiple colors - check if card's color array contains any of these colors
+                filter_query["color"] = {"$in": colors}
         
-        # If no limit specified, get all cards
+        # Rarity filter - support multiple rarities
+        if rarity:
+            rarities = [r.strip() for r in rarity.split(',')]
+            if len(rarities) == 1:
+                filter_query["rarity"] = rarities[0]
+            else:
+                filter_query["rarity"] = {"$in": rarities}
+        
+        # Text search - search in name, description, and flavor_text
+        if search_text:
+            # Create a regex pattern for case-insensitive search
+            search_pattern = re.compile(re.escape(search_text), re.IGNORECASE)
+            filter_query["$or"] = [
+                {"name": search_pattern},
+                {"description": search_pattern},
+                {"flavor_text": search_pattern},
+                {"keywords": {"$in": [search_pattern]}}  # Search in keywords array
+            ]
+        
+        # Build sort criteria
+        sort_criteria = []
+        if sort_by == "cost":
+            sort_criteria.append(("cost", 1 if sort_order == "asc" else -1))
+        elif sort_by == "rarity":
+            sort_criteria.append(("rarity", 1 if sort_order == "asc" else -1))
+        elif sort_by == "set_code":
+            sort_criteria.append(("set_code", 1 if sort_order == "asc" else -1))
+        else:  # Default to name
+            sort_criteria.append(("name", 1 if sort_order == "asc" else -1))
+        
+        # Execute query with sorting
+        cursor = cards_collection.find(filter_query).sort(sort_criteria)
+        
+        # Apply limit if specified
         if limit:
-            cards = await cards_collection.find(filter_query).limit(limit).to_list(limit)
-        else:
-            cards = await cards_collection.find(filter_query).to_list(None)
+            cursor = cursor.limit(limit)
+        
+        cards = await cursor.to_list(None)
         
         # Convert MongoDB documents to JSON-serializable format
         serializable_cards = [convert_mongo_document(card) for card in cards]
-        return {"cards": serializable_cards, "count": len(serializable_cards)}
+        return {
+            "cards": serializable_cards, 
+            "count": len(serializable_cards),
+            "filters_applied": {
+                "set_code": set_code,
+                "card_type": card_type,
+                "color": color,
+                "rarity": rarity,
+                "variant": variant,
+                "cost_range": f"{min_cost}-{max_cost}" if min_cost is not None or max_cost is not None else None,
+                "exact_cost": exact_cost,
+                "search_text": search_text
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/cards/search")
+async def search_cards(
+    q: Optional[str] = None,  # Main search query
+    colors: Optional[str] = None,  # Comma-separated colors
+    rarities: Optional[str] = None,  # Comma-separated rarities
+    cost_min: Optional[int] = None,
+    cost_max: Optional[int] = None,
+    cost_exact: Optional[int] = None,
+    card_types: Optional[str] = None,  # Comma-separated card types
+    sets: Optional[str] = None,  # Comma-separated set codes
+    keywords: Optional[str] = None,  # Comma-separated keywords
+    limit: Optional[int] = 50,
+    offset: Optional[int] = 0
+):
+    """Advanced search endpoint with comprehensive filtering options"""
+    try:
+        filter_query = {}
+        
+        # Main text search query
+        if q:
+            # Create a regex pattern for case-insensitive search
+            search_pattern = re.compile(re.escape(q), re.IGNORECASE)
+            filter_query["$or"] = [
+                {"name": search_pattern},
+                {"description": search_pattern},
+                {"flavor_text": search_pattern},
+                {"keywords": {"$in": [search_pattern]}},
+                {"subtype": {"$in": [search_pattern]}}
+            ]
+        
+        # Color filtering (color is stored as array in DB)
+        if colors:
+            color_list = [c.strip() for c in colors.split(',')]
+            filter_query["color"] = {"$in": color_list}
+        
+        # Rarity filtering
+        if rarities:
+            rarity_list = [r.strip() for r in rarities.split(',')]
+            filter_query["rarity"] = {"$in": rarity_list}
+        
+        # Cost filtering
+        if cost_exact is not None:
+            filter_query["cost"] = cost_exact
+        elif cost_min is not None or cost_max is not None:
+            cost_filter = {}
+            if cost_min is not None:
+                cost_filter["$gte"] = cost_min
+            if cost_max is not None:
+                cost_filter["$lte"] = cost_max
+            filter_query["cost"] = cost_filter
+        
+        # Card type filtering
+        if card_types:
+            type_list = [t.strip() for t in card_types.split(',')]
+            filter_query["card_type"] = {"$in": type_list}
+        
+        # Set filtering
+        if sets:
+            set_list = [s.strip() for s in sets.split(',')]
+            filter_query["set_code"] = {"$in": set_list}
+        
+        # Keyword filtering
+        if keywords:
+            keyword_list = [k.strip() for k in keywords.split(',')]
+            filter_query["keywords"] = {"$in": keyword_list}
+        
+        # Execute search with pagination
+        cursor = cards_collection.find(filter_query).skip(offset).limit(limit)
+        cards = await cursor.to_list(None)
+        
+        # Get total count for pagination
+        total_count = await cards_collection.count_documents(filter_query)
+        
+        # Convert MongoDB documents to JSON-serializable format
+        serializable_cards = [convert_mongo_document(card) for card in cards]
+        
+        return {
+            "cards": serializable_cards,
+            "count": len(serializable_cards),
+            "total_count": total_count,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + len(serializable_cards)) < total_count,
+            "search_params": {
+                "query": q,
+                "colors": colors,
+                "rarities": rarities,
+                "cost_range": f"{cost_min}-{cost_max}" if cost_min is not None or cost_max is not None else None,
+                "cost_exact": cost_exact,
+                "card_types": card_types,
+                "sets": sets,
+                "keywords": keywords
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/cards/options")
+async def get_search_options():
+    """Get available search options for building search interfaces"""
+    try:
+        # Get unique values for each searchable field
+        pipeline = [
+            {
+                "$group": {
+                    "_id": None,
+                    "colors": {"$addToSet": "$color"},
+                    "rarities": {"$addToSet": "$rarity"},
+                    "card_types": {"$addToSet": "$card_type"},
+                    "set_codes": {"$addToSet": "$set_code"},
+                    "keywords": {"$addToSet": "$keywords"},
+                    "costs": {"$addToSet": "$cost"}
+                }
+            }
+        ]
+        
+        result = await cards_collection.aggregate(pipeline).to_list(1)
+        
+        if result:
+            data = result[0]
+            # Flatten arrays and remove duplicates
+            all_colors = list(set([color for color_list in data.get("colors", []) for color in color_list]))
+            all_keywords = list(set([keyword for keyword_list in data.get("keywords", []) for keyword in keyword_list]))
+            
+            return {
+                "colors": sorted(all_colors),
+                "rarities": sorted(data.get("rarities", [])),
+                "card_types": sorted(data.get("card_types", [])),
+                "set_codes": sorted(data.get("set_codes", [])),
+                "keywords": sorted(all_keywords),
+                "costs": sorted(data.get("costs", []))
+            }
+        else:
+            return {
+                "colors": [],
+                "rarities": [],
+                "card_types": [],
+                "set_codes": [],
+                "keywords": [],
+                "costs": []
+            }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
