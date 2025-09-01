@@ -25,6 +25,14 @@ if __name__ == "__main__":
         print("1. Start your FastAPI backend: uvicorn main:app --reload")
         print("2. Use the API endpoints to view and update your cards")
         print("3. Update card details using PUT /cards/{card_id} or POST /cards/bulk-update")
+        print("\nNew card structure:")
+        print("- subtype: [] (array, max 2 for all cards)")
+        print("- color: ['Colorless'] (array, max 2, only Legend cards can have 2)")
+        print("- keywords: [] (array, max 2 for all cards)")
+        print("- might: 0 (integer, minimum 0)")
+        print("- description: '' (string)")
+        print("- flavor_text: '' (string)")
+        print("- artist: '' (string)")
         
     except Exception as e:
         print(f"\n❌ Error during population: {e}")

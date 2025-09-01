@@ -148,36 +148,44 @@ class CardModel(BaseModel):
     set_code: str = Field(..., pattern=r'^[A-Z]{2,3}$')  # e.g., "OGN"
     set_release_date: Optional[str] = None
     card_type: CardType
-    subtype_1: Optional[str] = None
-    subtype_2: Optional[str] = None
-    color: Union[CardColor, List[CardColor]]
+    subtype: List[str] = []
+    color: List[CardColor] = []
     cost: int = Field(..., ge=0, le=7)  # 0 to 7+
     rarity: CardRarity
-    might: Optional[int] = Field(None, ge=0)
-    description: Optional[str] = None
-    flavor_text: Optional[str] = None
-    artist: Optional[str] = None
+    might: int = Field(0, ge=0)
+    description: str = ""
+    flavor_text: str = ""
+    artist: str = ""
     collector_number: str
     variant: Optional[str] = "regular"  # "regular", "alt_art", or "signature"
-    keywords: Optional[List[str]] = []
+    keywords: List[str] = []
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
+    @validator('subtype')
+    def validate_subtype(cls, v, values):
+        """Validate that cards can have at most 2 subtypes"""
+        if len(v) > 2:
+            raise ValueError('Cards can have at most 2 subtypes')
+        return v
+    
     @validator('color')
     def validate_color(cls, v, values):
-        """Validate that Legend cards can have up to 2 colors, others can have only 1"""
+        """Validate that only Legend cards can have 2 colors"""
         card_type = values.get('card_type')
         
-        if isinstance(v, list):
-            if card_type == CardType.LEGEND:
-                if len(v) > 2:
-                    raise ValueError('Legend cards can have at most 2 colors')
-            else:
-                raise ValueError(f'{card_type} cards can only have 1 color, not a list')
-        else:
-            # Single color is always valid
-            pass
+        if len(v) > 2:
+            raise ValueError('Cards can have at most 2 colors')
+        elif len(v) > 1 and card_type != CardType.LEGEND:
+            raise ValueError(f'{card_type} cards can only have 1 color, not {len(v)}')
             
+        return v
+    
+    @validator('keywords')
+    def validate_keywords(cls, v):
+        """Validate that cards can have at most 2 keywords"""
+        if len(v) > 2:
+            raise ValueError('Cards can have at most 2 keywords')
         return v
 
 class SetInfoModel(BaseModel):
@@ -341,6 +349,7 @@ async def get_cards(
             filter_query["cost"] = cost_filter
         
         if color:
+            # Filter by color array containing the specified color
             filter_query["color"] = color
         
         # If no limit specified, get all cards
@@ -481,7 +490,8 @@ async def scan_cards_directory():
                                 set_name=set_folder,
                                 set_code=set_code,
                                 card_type=CardType.SPELL,  # Default, user should update
-                                color=CardColor.COLORLESS,  # Default, user should update
+                                subtype=[],  # Default empty, user should update
+                                color=[CardColor.COLORLESS],  # Default single color, user should update
                                 cost=0,  # Default, user should update
                                 rarity=CardRarity.COMMON,  # Default, user should update
                                 collector_number=collector_number,
