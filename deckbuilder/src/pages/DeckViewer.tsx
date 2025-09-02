@@ -68,6 +68,37 @@ const DeckViewer: React.FC = () => {
     }, [] as { card: Card; count: number }[]);
   };
 
+  // Get deck card counts by type
+  const getDeckCardCounts = (deck: SavedDeck) => {
+    const regularCards = [];
+    const battlefieldCards = [];
+    const legendCards = [];
+    const runeCards = [];
+
+    for (const cardId of deck.card_ids) {
+      const card = allCards.find(card => card.card_id === cardId);
+      if (card) {
+        const cardType = card.card_type;
+        if (cardType === "Battlefield") {
+          battlefieldCards.push(cardId);
+        } else if (cardType === "Legend") {
+          legendCards.push(cardId);
+        } else if (cardType === "Rune") {
+          runeCards.push(cardId);
+        } else {
+          regularCards.push(cardId);
+        }
+      }
+    }
+
+    return {
+      regular: regularCards.length,
+      battlefield: battlefieldCards.length,
+      legend: legendCards.length,
+      rune: runeCards.length
+    };
+  };
+
   // Delete a deck
   const deleteDeck = async (deckId: string) => {
     if (!window.confirm('Are you sure you want to delete this deck?')) {
@@ -137,7 +168,6 @@ const DeckViewer: React.FC = () => {
             
             {savedDecks.length === 0 ? (
               <div className="text-center py-8 text-base-content/70">
-                <div className="text-4xl mb-2">📚</div>
                 <p>No saved decks</p>
                 <p className="text-sm">Create a deck in the Deck Builder</p>
               </div>
@@ -154,7 +184,14 @@ const DeckViewer: React.FC = () => {
                     onClick={() => setSelectedDeck(deck)}
                   >
                     <h4 className="font-semibold text-sm truncate">{deck.name}</h4>
-                    <p className="text-xs opacity-70">{deck.card_ids.length} cards</p>
+                    {(() => {
+                      const counts = getDeckCardCounts(deck);
+                      return (
+                        <p className="text-xs opacity-70">
+                          {counts.regular}/40, {counts.battlefield}/3, {counts.legend}/1, {counts.rune}/12
+                        </p>
+                      );
+                    })()}
                     <p className="text-xs opacity-50">
                       {new Date(deck.created_at).toLocaleDateString()}
                     </p>
@@ -183,28 +220,48 @@ const DeckViewer: React.FC = () => {
                     onClick={() => deleteDeck(selectedDeck._id)}
                     title="Delete deck"
                   >
-                    🗑️
+                    Delete
                   </button>
                 </div>
 
                 {/* Deck Statistics */}
-                <div className="stats stats-horizontal shadow">
-                  <div className="stat">
-                    <div className="stat-title">Total Cards</div>
-                    <div className="stat-value">{selectedDeck.card_ids.length}</div>
-                    <div className="stat-desc">/ 40 maximum</div>
-                  </div>
-                  <div className="stat">
-                    <div className="stat-title">Total Cost</div>
-                    <div className="stat-value">{selectedDeck.total_cost}</div>
-                    <div className="stat-desc">Average: {selectedDeck.average_cost}</div>
-                  </div>
-                  <div className="stat">
-                    <div className="stat-title">Colors</div>
-                    <div className="stat-value">{selectedDeck.deck_colors.length}</div>
-                    <div className="stat-desc">{selectedDeck.deck_colors.join(', ') || 'None'}</div>
-                  </div>
-                </div>
+                {(() => {
+                  const counts = getDeckCardCounts(selectedDeck);
+                  return (
+                    <div className="stats stats-horizontal shadow">
+                      <div className="stat">
+                        <div className="stat-title">Main Deck</div>
+                        <div className="stat-value">{counts.regular}</div>
+                        <div className="stat-desc">/ 40 cards</div>
+                      </div>
+                      <div className="stat">
+                        <div className="stat-title">Battlefield</div>
+                        <div className="stat-value">{counts.battlefield}</div>
+                        <div className="stat-desc">/ 3 cards</div>
+                      </div>
+                      <div className="stat">
+                        <div className="stat-title">Legend</div>
+                        <div className="stat-value">{counts.legend}</div>
+                        <div className="stat-desc">/ 1 card</div>
+                      </div>
+                      <div className="stat">
+                        <div className="stat-title">Rune</div>
+                        <div className="stat-value">{counts.rune}</div>
+                        <div className="stat-desc">/ 12 cards</div>
+                      </div>
+                      <div className="stat">
+                        <div className="stat-title">Total Cost</div>
+                        <div className="stat-value">{selectedDeck.total_cost}</div>
+                        <div className="stat-desc">Average: {selectedDeck.average_cost}</div>
+                      </div>
+                      <div className="stat">
+                        <div className="stat-title">Colors</div>
+                        <div className="stat-value">{selectedDeck.deck_colors.length}</div>
+                        <div className="stat-desc">{selectedDeck.deck_colors.join(', ') || 'None'}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Deck Cards */}
@@ -215,7 +272,6 @@ const DeckViewer: React.FC = () => {
                   const deckCardsWithCount = getDeckCardsWithCount(selectedDeck);
                   return deckCardsWithCount.length === 0 ? (
                     <div className="text-center py-8 text-base-content/70">
-                      <div className="text-4xl mb-2">🃏</div>
                       <p>No cards in this deck</p>
                     </div>
                   ) : (
@@ -250,7 +306,6 @@ const DeckViewer: React.FC = () => {
             </>
           ) : (
             <div className="bg-base-200 p-8 rounded-lg text-center">
-              <div className="text-6xl mb-4">👆</div>
               <h3 className="text-xl font-semibold mb-2">Select a Deck</h3>
               <p className="text-base-content/70">Choose a deck from the list to view its details</p>
             </div>

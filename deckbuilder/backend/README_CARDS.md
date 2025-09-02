@@ -50,12 +50,23 @@ uvicorn main:app --reload
 ### **Card Management**
 - `GET /cards` - List all cards with filters (including variant filtering)
 - `GET /cards/{set_name}` - Get cards from a specific set
+- `POST /add-card` - Add a new card to the database
 - `PUT /cards/{card_id}` - Update a specific card
 - `POST /cards/bulk-update` - Update multiple cards at once
+- `POST /cards/update-from-data` - Update cards from structured data format
+- `POST /scan-cards` - Scan directory and add all cards
 
 ### **Set Management**
 - `GET /sets` - List all card sets
 - `POST /sets` - Create a new set
+
+### **Deck Management**
+- `POST /decks` - Create a new deck
+- `GET /decks` - Get all decks
+- `GET /decks/{deck_id}` - Get a specific deck
+- `PUT /decks/{deck_id}/add-card` - Add a card to a deck
+- `PUT /decks/{deck_id}/remove-card` - Remove a card from a deck
+- `DELETE /decks/{deck_id}` - Delete a deck
 
 ### **Image Serving**
 - `GET /cards/{set_name}/{filename}` - Serve card images

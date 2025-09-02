@@ -218,23 +218,13 @@ const DeckBuilder: React.FC = () => {
         setErrorModal({
           isOpen: true,
           title: 'Rune Limit Reached',
-          message: 'You can have up to 12 Rune cards.',
+          message: 'You can have up to 12 Rune cards total.',
           type: 'warning'
         });
         return;
       }
       
-      // Check if this card is already in rune (max 1 copy)
-      if (specialCards.rune.some(c => c.card_id === card.card_id)) {
-        setErrorModal({
-          isOpen: true,
-          title: 'Card Already Added',
-          message: 'This Rune card is already in your deck.',
-          type: 'warning'
-        });
-        return;
-      }
-      
+      // Add rune card (unlimited copies allowed, just total limit of 12)
       setSpecialCards(prev => ({
         ...prev,
         rune: [...prev.rune, card]
@@ -314,6 +304,47 @@ const DeckBuilder: React.FC = () => {
     }
   };
 
+  // Change rune quantity
+  const changeRuneQuantity = (cardId: string, newQuantity: number) => {
+    if (newQuantity < 0) return;
+    
+    const currentCount = specialCards.rune.filter(id => id.card_id === cardId).length;
+    let newRunes = [...specialCards.rune];
+    
+    if (newQuantity > currentCount) {
+      // Add more copies
+      const card = cards.find(c => c.card_id === cardId);
+      if (card && newRunes.length + (newQuantity - currentCount) <= 12) {
+        const copiesToAdd = newQuantity - currentCount;
+        for (let i = 0; i < copiesToAdd; i++) {
+          newRunes.push(card);
+        }
+      }
+    } else if (newQuantity < currentCount) {
+      // Remove copies
+      const copiesToRemove = currentCount - newQuantity;
+      for (let i = 0; i < copiesToRemove; i++) {
+        const index = newRunes.findIndex(rune => rune.card_id === cardId);
+        if (index > -1) {
+          newRunes.splice(index, 1);
+        }
+      }
+    }
+    
+    setSpecialCards(prev => ({
+      ...prev,
+      rune: newRunes
+    }));
+  };
+
+  // Remove all copies of a rune card
+  const removeAllRuneCopies = (cardId: string) => {
+    setSpecialCards(prev => ({
+      ...prev,
+      rune: prev.rune.filter(card => card.card_id !== cardId)
+    }));
+  };
+
   // Change card quantity in deck
   const changeCardQuantity = (cardId: string, newQuantity: number) => {
     if (newQuantity < 0) return;
@@ -382,6 +413,7 @@ const DeckBuilder: React.FC = () => {
        return;
      }
 
+     // Rune cards are required (exactly 12)
      if (specialCards.rune.length !== 12) {
        setErrorModal({
          isOpen: true,
@@ -428,7 +460,7 @@ const DeckBuilder: React.FC = () => {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        await response.json();
         setErrorModal({
           isOpen: true,
           title: 'Success!',
@@ -469,7 +501,7 @@ const DeckBuilder: React.FC = () => {
         setErrorModal({
           isOpen: true,
           title: 'Error Saving Deck',
-          message: `Error saving deck: ${errorData.error}`,
+          message: `Error saving deck: ${errorData.detail || errorData.error || 'Unknown error'}`,
           type: 'error'
         });
       }
@@ -536,7 +568,7 @@ const DeckBuilder: React.FC = () => {
       {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold text-primary mb-2">Deck Builder</h1>
-                 <p className="text-lg text-base-content/70">Build your perfect deck (40 main cards + 3 Battlefield + 1 Legend + 12 Rune)</p>
+                 <p className="text-lg text-base-content/70">Build your perfect deck (40 main cards + 3 Battlefield + 1 Legend + up to 12 Rune)</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -800,7 +832,7 @@ const DeckBuilder: React.FC = () => {
                          onClick={() => removeSpecialCard('battlefield', card.card_id)}
                          title="Remove Battlefield card"
                        >
-                         ✕
+                         ×
                        </button>
                      </div>
                    ))}
@@ -840,13 +872,13 @@ const DeckBuilder: React.FC = () => {
                      onClick={() => removeSpecialCard('legend', specialCards.legend!.card_id)}
                      title="Remove Legend card"
                    >
-                     ✕
+                     ×
                    </button>
                  </div>
                )}
              </div>
 
-             {/* Rune Cards - Must have exactly 12 */}
+             {/* Rune Cards - Exactly 12 required */}
              <div>
                <h4 className="font-medium text-sm mb-2">
                  Rune Cards ({specialCards.rune.length}/12)
@@ -858,32 +890,68 @@ const DeckBuilder: React.FC = () => {
                  </div>
                ) : (
                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                   {specialCards.rune.map((card) => (
-                     <div key={card.card_id} className="flex items-center gap-2 p-2 bg-base-100 rounded-lg">
-                       <img
-                         src={`/image/${card.set_name}/${card.image_path}`}
-                         alt={card.name}
-                         className="w-10 h-12 object-cover rounded"
-                         onError={(e) => {
-                           const target = e.target as HTMLImageElement;
-                           target.src = 'https://via.placeholder.com/40x48?text=Card';
-                         }}
-                       />
-                       <div className="flex-1 min-w-0">
-                         <h5 className="font-semibold text-xs truncate">{card.name}</h5>
-                         {card.cost !== undefined && card.cost !== null && (
-                           <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
-                         )}
+                   {(() => {
+                     // Group rune cards by card_id and count them
+                     const runeCardsWithCount = specialCards.rune.reduce((acc, card) => {
+                       const existing = acc.find(item => item.card.card_id === card.card_id);
+                       if (existing) {
+                         existing.count++;
+                       } else {
+                         acc.push({ card, count: 1 });
+                       }
+                       return acc;
+                     }, [] as { card: Card; count: number }[]);
+
+                     return runeCardsWithCount.map(({ card, count }) => (
+                       <div key={card.card_id} className="flex items-center gap-2 p-2 bg-base-100 rounded-lg">
+                         <img
+                           src={`/image/${card.set_name}/${card.image_path}`}
+                           alt={card.name}
+                           className="w-10 h-12 object-cover rounded"
+                           onError={(e) => {
+                             const target = e.target as HTMLImageElement;
+                             target.src = 'https://via.placeholder.com/40x48?text=Card';
+                           }}
+                         />
+                         <div className="flex-1 min-w-0">
+                           <h5 className="font-semibold text-xs truncate">{card.name}</h5>
+                           {card.cost !== undefined && card.cost !== null && (
+                             <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
+                           )}
+                         </div>
+                         <div className="flex items-center gap-2">
+                           {/* Quantity Controls */}
+                           <div className="flex items-center gap-1">
+                             <button
+                               className="btn btn-ghost btn-xs text-base-content/70 hover:text-base-content"
+                               onClick={() => changeRuneQuantity(card.card_id, count - 1)}
+                               disabled={count <= 1}
+                               title="Decrease quantity"
+                             >
+                               -
+                             </button>
+                             <span className="badge badge-primary badge-sm min-w-[2rem]">{count}</span>
+                             <button
+                               className="btn btn-ghost btn-xs text-base-content/70 hover:text-base-content"
+                               onClick={() => changeRuneQuantity(card.card_id, count + 1)}
+                               disabled={specialCards.rune.length >= 12}
+                               title="Increase quantity"
+                             >
+                               +
+                             </button>
+                           </div>
+                           {/* Delete Button */}
+                           <button
+                             className="btn btn-ghost btn-xs text-error hover:bg-error hover:text-error-content"
+                             onClick={() => removeAllRuneCopies(card.card_id)}
+                             title="Remove all copies"
+                           >
+                             ×
+                           </button>
+                         </div>
                        </div>
-                       <button
-                         className="btn btn-ghost btn-xs text-error hover:bg-error hover:text-error-content"
-                         onClick={() => removeSpecialCard('rune', card.card_id)}
-                         title="Remove Rune card"
-                       >
-                         ✕
-                       </button>
-                     </div>
-                   ))}
+                     ));
+                   })()}
                  </div>
                )}
              </div>
@@ -895,7 +963,6 @@ const DeckBuilder: React.FC = () => {
             
             {deckCardsWithCount.length === 0 ? (
               <div className="text-center py-8 text-base-content/70">
-                <div className="text-4xl mb-2">🃏</div>
                 <p>No cards in deck</p>
                 <p className="text-sm">Click on cards to add them</p>
               </div>
@@ -946,7 +1013,7 @@ const DeckBuilder: React.FC = () => {
                          onClick={() => removeCardFromDeck(card.card_id)}
                          title="Remove all copies"
                        >
-                         🗑️
+                         Delete
                        </button>
                      </div>
                   </div>

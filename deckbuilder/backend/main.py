@@ -319,6 +319,194 @@ async def add_card(card: CardModel):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.put("/cards/{card_id}")
+async def update_card(card_id: str, card_updates: dict):
+    """Update a specific card with new information"""
+    try:
+        # Remove fields that shouldn't be updated
+        updates = {k: v for k, v in card_updates.items() 
+                  if k not in ['_id', 'card_id', 'created_at']}
+        updates['updated_at'] = datetime.now()
+        
+        result = await cards_collection.update_one(
+            {"card_id": card_id},
+            {"$set": updates}
+        )
+        
+        if result.modified_count > 0:
+            return {"message": f"Card {card_id} updated successfully"}
+        else:
+            raise HTTPException(status_code=404, detail=f"Card {card_id} not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/cards/bulk-update")
+async def bulk_update_cards(card_updates: List[dict]):
+    """Bulk update multiple cards at once"""
+    try:
+        updated_count = 0
+        errors = []
+        
+        for update in card_updates:
+            try:
+                card_id = update.get('card_id')
+                if not card_id:
+                    errors.append({"card_id": "missing", "error": "Missing card_id"})
+                    continue
+                
+                # Remove card_id from updates
+                updates = {k: v for k, v in update.items() if k != 'card_id'}
+                updates['updated_at'] = datetime.now()
+                
+                result = await cards_collection.update_one(
+                    {"card_id": card_id},
+                    {"$set": updates}
+                )
+                
+                if result.modified_count > 0:
+                    updated_count += 1
+                else:
+                    errors.append({"card_id": card_id, "error": "Card not found"})
+                    
+            except Exception as e:
+                errors.append({"card_id": update.get('card_id', 'unknown'), "error": str(e)})
+        
+        return {
+            "message": f"Bulk update completed. Updated {updated_count} cards.",
+            "updated_count": updated_count,
+            "errors": errors
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/cards/update-from-data")
+async def update_cards_from_data(cards_data: dict):
+    """Update cards from structured data format"""
+    try:
+        updated_count = 0
+        not_found_count = 0
+        errors = []
+        
+        for card_id, card_data in cards_data.items():
+            try:
+                # Check if card exists
+                existing_card = await cards_collection.find_one({"card_id": card_id})
+                
+                if not existing_card:
+                    not_found_count += 1
+                    errors.append({"card_id": card_id, "error": "Card not found in database"})
+                    continue
+                
+                # Prepare update data
+                update_data = {
+                    "updated_at": datetime.now()
+                }
+                
+                # Map the provided data to database fields
+                field_mapping = {
+                    "name": "name",
+                    "card_type": "card_type", 
+                    "subtype": "subtype",
+                    "color": "color",
+                    "cost": "cost",
+                    "rarity": "rarity",
+                    "might": "might",
+                    "description": "description",
+                    "flavor_text": "flavor_text",
+                    "artist": "artist",
+                    "keywords": "keywords"
+                }
+                
+                for field, db_field in field_mapping.items():
+                    if field in card_data:
+                        update_data[db_field] = card_data[field]
+                
+                # Update the card
+                result = await cards_collection.update_one(
+                    {"card_id": card_id},
+                    {"$set": update_data}
+                )
+                
+                if result.modified_count > 0:
+                    updated_count += 1
+                else:
+                    errors.append({"card_id": card_id, "error": "No changes made"})
+                    
+            except Exception as e:
+                errors.append({"card_id": card_id, "error": str(e)})
+        
+        return {
+            "message": f"Update completed. Updated {updated_count} cards, {not_found_count} not found.",
+            "updated_count": updated_count,
+            "not_found_count": not_found_count,
+            "errors": errors
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/scan-cards")
+async def scan_cards_directory():
+    """Automatically scan the Riftbound_Cards directory and add all cards to MongoDB"""
+    try:
+        cards_dir = cards_path
+        added_count = 0
+        updated_count = 0
+        
+        for set_folder in os.listdir(cards_dir):
+            set_path = os.path.join(cards_dir, set_folder)
+            if os.path.isdir(set_path) and not set_folder.startswith('.'):
+                for filename in os.listdir(set_path):
+                    if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                        # Extract card ID from filename (e.g., "OGN_001.png" -> "OGN_001")
+                        card_id = os.path.splitext(filename)[0]
+                        
+                        # Extract set code from card ID
+                        set_code_match = re.match(r'^([A-Z]{2,3})_(\d{3})([aS]?)$', card_id)
+                        if not set_code_match:
+                            continue
+                            
+                        set_code = set_code_match.group(1)
+                        collector_number = set_code_match.group(2)
+                        variant = set_code_match.group(3)  # 'a' for alt art, 'S' for signature, '' for regular
+                        
+                        # Check if card already exists
+                        existing = await cards_collection.find_one({"card_id": card_id})
+                        if not existing:
+                            # Create basic card entry (user will need to fill in details)
+                            card = CardModel(
+                                name=f"Card {card_id}",
+                                image_path=filename,
+                                card_id=card_id,
+                                set_name=set_folder,
+                                set_code=set_code,
+                                card_type=CardType.SPELL,  # Default, user should update
+                                subtype=[],  # Default empty array, user should update
+                                color=[CardColor.COLORLESS],  # Default single color, user should update
+                                cost=0,  # Default, user should update
+                                rarity=CardRarity.COMMON,  # Default, user should update
+                                collector_number=collector_number,
+                                keywords=[]
+                            )
+                            await cards_collection.insert_one(card.dict())
+                            added_count += 1
+                        else:
+                            # Update existing card with new image path if needed
+                            if existing.get("image_path") != filename:
+                                await cards_collection.update_one(
+                                    {"_id": existing["_id"]},
+                                    {"$set": {"image_path": filename, "updated_at": datetime.now()}}
+                                )
+                                updated_count += 1
+        
+        return {
+            "message": f"Scan completed. Added {added_count} new cards, updated {updated_count} existing cards"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/cards")
 async def get_cards(
     set_code: Optional[str] = None,
@@ -664,192 +852,9 @@ async def get_card_image(set_name: str, filename: str):
     else:
         raise HTTPException(status_code=404, detail="Image not found")
 
-@app.post("/scan-cards")
-async def scan_cards_directory():
-    """Automatically scan the Riftbound_Cards directory and add all cards to MongoDB"""
-    try:
-        cards_dir = cards_path
-        added_count = 0
-        updated_count = 0
-        
-        for set_folder in os.listdir(cards_dir):
-            set_path = os.path.join(cards_dir, set_folder)
-            if os.path.isdir(set_path) and not set_folder.startswith('.'):
-                for filename in os.listdir(set_path):
-                    if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-                        # Extract card ID from filename (e.g., "OGN_001.png" -> "OGN_001")
-                        card_id = os.path.splitext(filename)[0]
-                        
-                        # Extract set code from card ID
-                        set_code_match = re.match(r'^([A-Z]{2,3})_(\d{3})([aS]?)$', card_id)
-                        if not set_code_match:
-                            continue
-                            
-                        set_code = set_code_match.group(1)
-                        collector_number = set_code_match.group(2)
-                        variant = set_code_match.group(3)  # 'a' for alt art, 'S' for signature, '' for regular
-                        
-                        # Check if card already exists
-                        existing = await cards_collection.find_one({"card_id": card_id})
-                        if not existing:
-                            # Create basic card entry (user will need to fill in details)
-                            card = CardModel(
-                                name=f"Card {card_id}",
-                                image_path=filename,
-                                card_id=card_id,
-                                set_name=set_folder,
-                                set_code=set_code,
-                                card_type=CardType.SPELL,  # Default, user should update
-                                subtype=[],  # Default empty array, user should update
-                                color=[CardColor.COLORLESS],  # Default single color, user should update
-                                cost=0,  # Default, user should update
-                                rarity=CardRarity.COMMON,  # Default, user should update
-                                collector_number=collector_number,
-                                keywords=[]
-                            )
-                            await cards_collection.insert_one(card.dict())
-                            added_count += 1
-                        else:
-                            # Update existing card with new image path if needed
-                            if existing.get("image_path") != filename:
-                                await cards_collection.update_one(
-                                    {"_id": existing["_id"]},
-                                    {"$set": {"image_path": filename, "updated_at": datetime.now()}}
-                                )
-                                updated_count += 1
-        
-        return {
-            "message": f"Scan completed. Added {added_count} new cards, updated {updated_count} existing cards"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.put("/cards/{card_id}")
-async def update_card(card_id: str, card_updates: dict):
-    """Update a specific card with new information"""
-    try:
-        # Remove fields that shouldn't be updated
-        updates = {k: v for k, v in card_updates.items() 
-                  if k not in ['_id', 'card_id', 'created_at']}
-        updates['updated_at'] = datetime.now()
-        
-        result = await cards_collection.update_one(
-            {"card_id": card_id},
-            {"$set": updates}
-        )
-        
-        if result.modified_count > 0:
-            return {"message": f"Card {card_id} updated successfully"}
-        else:
-            raise HTTPException(status_code=404, detail=f"Card {card_id} not found")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/cards/bulk-update")
-async def bulk_update_cards(card_updates: List[dict]):
-    """Bulk update multiple cards at once"""
-    try:
-        updated_count = 0
-        errors = []
-        
-        for update in card_updates:
-            try:
-                card_id = update.get('card_id')
-                if not card_id:
-                    errors.append({"card_id": "missing", "error": "Missing card_id"})
-                    continue
-                
-                # Remove card_id from updates
-                updates = {k: v for k, v in update.items() if k != 'card_id'}
-                updates['updated_at'] = datetime.now()
-                
-                result = await cards_collection.update_one(
-                    {"card_id": card_id},
-                    {"$set": updates}
-                )
-                
-                if result.modified_count > 0:
-                    updated_count += 1
-                else:
-                    errors.append({"card_id": card_id, "error": "Card not found"})
-                    
-            except Exception as e:
-                errors.append({"card_id": update.get('card_id', 'unknown'), "error": str(e)})
-        
-        return {
-            "message": f"Bulk update completed. Updated {updated_count} cards.",
-            "updated_count": updated_count,
-            "errors": errors
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/cards/update-from-data")
-async def update_cards_from_data(cards_data: dict):
-    """Update cards from structured data format"""
-    try:
-        updated_count = 0
-        not_found_count = 0
-        errors = []
-        
-        for card_id, card_data in cards_data.items():
-            try:
-                # Check if card exists
-                existing_card = await cards_collection.find_one({"card_id": card_id})
-                
-                if not existing_card:
-                    not_found_count += 1
-                    errors.append({"card_id": card_id, "error": "Card not found in database"})
-                    continue
-                
-                # Prepare update data
-                update_data = {
-                    "updated_at": datetime.now()
-                }
-                
-                # Map the provided data to database fields
-                field_mapping = {
-                    "name": "name",
-                    "card_type": "card_type", 
-                    "subtype": "subtype",
-                    "color": "color",
-                    "cost": "cost",
-                    "rarity": "rarity",
-                    "might": "might",
-                    "description": "description",
-                    "flavor_text": "flavor_text",
-                    "artist": "artist",
-                    "keywords": "keywords"
-                }
-                
-                for field, db_field in field_mapping.items():
-                    if field in card_data:
-                        update_data[db_field] = card_data[field]
-                
-                # Update the card
-                result = await cards_collection.update_one(
-                    {"card_id": card_id},
-                    {"$set": update_data}
-                )
-                
-                if result.modified_count > 0:
-                    updated_count += 1
-                else:
-                    errors.append({"card_id": card_id, "error": "No changes made"})
-                    
-            except Exception as e:
-                errors.append({"card_id": card_id, "error": str(e)})
-        
-        return {
-            "message": f"Update completed. Updated {updated_count} cards, {not_found_count} not found.",
-            "updated_count": updated_count,
-            "not_found_count": not_found_count,
-            "errors": errors
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 # ===== DECK BUILDER ENDPOINTS =====
 
@@ -857,25 +862,51 @@ async def update_cards_from_data(cards_data: dict):
 async def create_deck(deck: DeckModel):
     """Create a new deck"""
     try:
-        # Validate deck size (max 40 cards)
-        if len(deck.card_ids) > 40:
-            raise HTTPException(status_code=400, detail="Deck cannot exceed 40 cards")
+        # Separate regular cards from special cards
+        regular_cards = []
+        battlefield_cards = []
+        legend_cards = []
+        rune_cards = []
         
-        # Check for more than 3 copies of any card
-        card_counts = {}
+        # Categorize cards by type
         for card_id in deck.card_ids:
+            card = await cards_collection.find_one({"card_id": card_id})
+            if card:
+                card_type = card.get("card_type")
+                if card_type == "Battlefield":
+                    battlefield_cards.append(card_id)
+                elif card_type == "Legend":
+                    legend_cards.append(card_id)
+                elif card_type == "Rune":
+                    rune_cards.append(card_id)
+                else:
+                    regular_cards.append(card_id)
+        
+        # Validate regular deck size (max 40 cards)
+        if len(regular_cards) > 40:
+            raise HTTPException(status_code=400, detail="Regular deck cannot exceed 40 cards")
+        
+        # Validate special card requirements
+        if len(battlefield_cards) != 3:
+            raise HTTPException(status_code=400, detail="You must have exactly 3 Battlefield cards")
+        
+        if len(legend_cards) != 1:
+            raise HTTPException(status_code=400, detail="You must have exactly 1 Legend card")
+        
+        if len(rune_cards) != 12:
+            raise HTTPException(status_code=400, detail="You must have exactly 12 Rune cards")
+        
+        # Check for more than 3 copies of any regular card
+        card_counts = {}
+        for card_id in regular_cards:
             card_counts[card_id] = card_counts.get(card_id, 0) + 1
             if card_counts[card_id] > 3:
                 raise HTTPException(status_code=400, detail=f"Cannot have more than 3 copies of {card_id}")
         
-        # Check Legend rule - only 1 Legend, Signature Unit, or Signature Spell allowed per deck
-        special_card_count = 0
-        for card_id in deck.card_ids:
-            card = await cards_collection.find_one({"card_id": card_id})
-            if card and card.get("card_type") in ["Legend", "Signature Unit", "Signature Spell"]:
-                special_card_count += 1
-                if special_card_count > 1:
-                    raise HTTPException(status_code=400, detail="You can only have 1 Legend, Signature Unit, or Signature Spell card in your deck")
+        # Check for more than 12 copies of any rune card (total limit)
+        rune_card_counts = {}
+        for card_id in rune_cards:
+            rune_card_counts[card_id] = rune_card_counts.get(card_id, 0) + 1
         
         # Set timestamps
         deck.created_at = datetime.now()

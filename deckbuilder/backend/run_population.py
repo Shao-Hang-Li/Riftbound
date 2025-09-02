@@ -1,43 +1,23 @@
 #!/usr/bin/env python3
 """
-Simple runner script to populate the MongoDB database with Riftbound cards.
-Run this after starting your MongoDB server and FastAPI backend.
+Script to run the card population process.
+This is a simple wrapper around populate_cards.py for easy execution.
 """
 
 import asyncio
 import sys
 import os
 
-# Add the current directory to Python path so we can import populate_cards
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add the backend directory to the path
+sys.path.append(os.path.dirname(__file__))
 
 from populate_cards import main
 
 if __name__ == "__main__":
-    print("Starting Riftbound card population...")
-    print("Make sure MongoDB is running and accessible at localhost:27017")
+    print("🎯 Running Riftbound Card Population")
+    print("This will populate the database with all cards from the Riftbound_Cards directory.")
+    print("Make sure MongoDB is running on localhost:27017")
     print()
     
-    try:
-        asyncio.run(main())
-        print("\n✅ Population completed successfully!")
-        print("\nNext steps:")
-        print("1. Start your FastAPI backend: uvicorn main:app --reload")
-        print("2. Use the API endpoints to view and update your cards")
-        print("3. Update card details using PUT /cards/{card_id} or POST /cards/bulk-update")
-        print("\nNew card structure:")
-        print("- subtype: [] (array, max 2 for all cards)")
-        print("- color: ['Colorless'] (array, max 2, only Legend cards can have 2)")
-        print("- keywords: [] (array, max 2 for all cards)")
-        print("- might: 0 (integer, minimum 0)")
-        print("- description: '' (string)")
-        print("- flavor_text: '' (string)")
-        print("- artist: '' (string)")
-        
-    except Exception as e:
-        print(f"\n❌ Error during population: {e}")
-        print("\nTroubleshooting:")
-        print("1. Make sure MongoDB is running")
-        print("2. Check that the Riftbound_Cards directory exists")
-        print("3. Verify your MongoDB connection string")
-        sys.exit(1)
+    # Run the population process
+    asyncio.run(main())
