@@ -29,7 +29,7 @@ const CardImage: React.FC<CardImageProps> = ({
       case 'medium':
         return 'w-12 h-16';
       case 'large':
-        return 'w-16 h-20';
+        return 'w-20 h-auto'; // Changed to show full image without cropping
       case 'preview':
         return 'w-64 h-auto';
       case 'gallery':
@@ -60,11 +60,16 @@ const CardImage: React.FC<CardImageProps> = ({
     onError?.(e);
   };
 
+  const getObjectFit = () => {
+    // Use object-contain for large size to show full image, object-cover for others
+    return size === 'large' ? 'object-contain' : 'object-cover';
+  };
+
   return (
     <img
       src={getImagePath()}
       alt={card.name}
-      className={`${getSizeClasses()} ${className} object-cover rounded`}
+      className={`${getSizeClasses()} ${className} ${getObjectFit()} rounded`}
       onError={handleError}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
