@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Deck } from '../types/Card';
+import { Card, Deck } from '../types';
+import { CardsProvider, useCards } from '../context/CardsContext';
+import { useErrorModal } from '../hooks/useErrorModal';
+import { deckService } from '../services/deckService';
+import CardImage from '../components/CardImage';
+import DeckStats from '../components/DeckStats';
+import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorModal from '../components/ErrorModal';
 
 interface SavedDeck extends Deck {
@@ -8,49 +14,29 @@ interface SavedDeck extends Deck {
   updated_at: string;
 }
 
-const DeckViewer: React.FC = () => {
+const DeckViewerContent: React.FC = () => {
+  const { cards: allCards, loading: cardsLoading } = useCards();
   const [savedDecks, setSavedDecks] = useState<SavedDeck[]>([]);
-  const [allCards, setAllCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDeck, setSelectedDeck] = useState<SavedDeck | null>(null);
-  const [errorModal, setErrorModal] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    type: 'error' | 'warning' | 'success' | 'info';
-  }>({
-    isOpen: false,
-    title: '',
-    message: '',
-    type: 'error'
-  });
+  const { errorModal, showError, closeError } = useErrorModal();
 
-  // Fetch saved decks and all cards
+  // Fetch saved decks
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDecks = async () => {
       try {
-        // Fetch saved decks
-        const decksResponse = await fetch('/decks');
-        if (decksResponse.ok) {
-          const decksData = await decksResponse.json();
-          setSavedDecks(decksData.decks || []);
-        }
-
-        // Fetch all cards
-        const cardsResponse = await fetch('/cards');
-        if (cardsResponse.ok) {
-          const cardsData = await cardsResponse.json();
-          setAllCards(cardsData.cards || []);
-        }
+        const decks = await deckService.getDecks();
+        setSavedDecks(decks);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching decks:', error);
+        showError('Error', 'Failed to fetch saved decks', 'error');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, []);
+    fetchDecks();
+  }, [showError]);
 
   // Get deck cards with full details and count
   const getDeckCardsWithCount = (deck: SavedDeck) => {
@@ -106,50 +92,20 @@ const DeckViewer: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`/decks/${deckId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        setSavedDecks(savedDecks.filter(deck => deck._id !== deckId));
-        if (selectedDeck?._id === deckId) {
-          setSelectedDeck(null);
-        }
-        setErrorModal({
-          isOpen: true,
-          title: 'Success!',
-          message: 'Deck deleted successfully!',
-          type: 'success'
-        });
-      } else {
-        setErrorModal({
-          isOpen: true,
-          title: 'Error',
-          message: 'Failed to delete deck',
-          type: 'error'
-        });
+      await deckService.deleteDeck(deckId);
+      setSavedDecks(savedDecks.filter(deck => deck._id !== deckId));
+      if (selectedDeck?._id === deckId) {
+        setSelectedDeck(null);
       }
+      showError('Success!', 'Deck deleted successfully!', 'success');
     } catch (error) {
       console.error('Error deleting deck:', error);
-      setErrorModal({
-        isOpen: true,
-        title: 'Network Error',
-        message: 'Failed to delete deck. Please check your connection.',
-        type: 'error'
-      });
+      showError('Network Error', 'Failed to delete deck. Please check your connection.', 'error');
     }
   };
 
-  const closeErrorModal = () => {
-    setErrorModal(prev => ({ ...prev, isOpen: false }));
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="loading loading-spinner loading-lg"></div>
-      </div>
-    );
+  if (loading || cardsLoading) {
+    return <LoadingSpinner />;
   }
 
   return (
@@ -278,15 +234,7 @@ const DeckViewer: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {deckCardsWithCount.map(({ card, count }) => (
                         <div key={card.card_id} className="flex items-center gap-3 p-3 bg-base-100 rounded-lg">
-                          <img
-                            src={`/image/${card.set_name}/${card.image_path}`}
-                            alt={card.name}
-                            className="w-16 h-20 object-cover rounded"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = 'https://via.placeholder.com/64x80?text=Card';
-                            }}
-                          />
+                          <CardImage card={card} size="large" />
                           <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-sm truncate">{card.name}</h4>
                             <p className="text-xs text-base-content/70">{card.card_type}</p>
@@ -294,9 +242,9 @@ const DeckViewer: React.FC = () => {
                               <p className="text-xs text-base-content/50">Cost: {card.cost}</p>
                             )}
                           </div>
-                                                     <div className="flex items-center gap-2">
-                             <span className="badge badge-primary badge-sm min-w-[2rem]">x{count}</span>
-                           </div>
+                          <div className="flex items-center gap-2">
+                            <span className="badge badge-primary badge-sm min-w-[2rem]">x{count}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -316,12 +264,20 @@ const DeckViewer: React.FC = () => {
       {/* Error Modal */}
       <ErrorModal
         isOpen={errorModal.isOpen}
-        onClose={closeErrorModal}
+        onClose={closeError}
         title={errorModal.title}
         message={errorModal.message}
         type={errorModal.type}
       />
     </div>
+  );
+};
+
+const DeckViewer: React.FC = () => {
+  return (
+    <CardsProvider>
+      <DeckViewerContent />
+    </CardsProvider>
   );
 };
 
