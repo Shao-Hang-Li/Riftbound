@@ -568,7 +568,7 @@ const DeckBuilder: React.FC = () => {
       {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold text-primary mb-2">Deck Builder</h1>
-                 <p className="text-lg text-base-content/70">Build your perfect deck (40 main cards + 3 Battlefield + 1 Legend + up to 12 Rune)</p>
+                 <p className="text-lg text-base-content/70">Build your perfect deck (40 main cards + 3 Battlefield + 1 Legend + 12 Rune)</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -691,8 +691,21 @@ const DeckBuilder: React.FC = () => {
           {/* Cards Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {filteredCards.map((card) => {
-              const currentCount = deck.card_ids.filter(id => id === card.card_id).length;
-              const isMaxCopies = currentCount >= 3;
+              // Calculate count for regular cards
+              let currentCount = deck.card_ids.filter(id => id === card.card_id).length;
+              let isMaxCopies = currentCount >= 3;
+              
+              // For special cards, check their respective collections
+              if (card.card_type === 'Rune') {
+                currentCount = specialCards.rune.filter(c => c.card_id === card.card_id).length;
+                isMaxCopies = specialCards.rune.length >= 12;
+              } else if (card.card_type === 'Battlefield') {
+                currentCount = specialCards.battlefield.filter(c => c.card_id === card.card_id).length;
+                isMaxCopies = specialCards.battlefield.length >= 3;
+              } else if (card.card_type === 'Legend') {
+                currentCount = specialCards.legend?.card_id === card.card_id ? 1 : 0;
+                isMaxCopies = specialCards.legend !== null;
+              }
               
               return (
                 <div 
