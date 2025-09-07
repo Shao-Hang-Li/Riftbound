@@ -50,8 +50,7 @@ const DeckValidationModal: React.FC<DeckValidationModalProps> = ({
   return (
     <div className="modal modal-open">
       <div className="modal-box max-w-md">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-2xl">⚠️</span>
+        <div className="mb-4">
           <h3 className="font-bold text-lg">Deck Requirements Not Met</h3>
         </div>
         
@@ -64,7 +63,7 @@ const DeckValidationModal: React.FC<DeckValidationModalProps> = ({
             <div key={req.name} className="flex items-center justify-between p-3 rounded-lg border">
               <div className="flex items-center gap-2">
                 <span className={`text-lg ${req.met ? 'text-green-500' : 'text-red-500'}`}>
-                  {req.met ? '✓' : '✕'}
+                  {req.met ? '\u2713' : '\u2715'}
                 </span>
                 <span className="font-medium">{req.name}</span>
               </div>
