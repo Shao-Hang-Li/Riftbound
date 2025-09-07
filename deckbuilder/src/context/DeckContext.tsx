@@ -26,6 +26,8 @@ interface DeckContextType {
   isCardDisabled: (card: Card) => boolean;
   getDeckCardsWithCount: () => { card: Card; count: number }[];
   calculateDeckStats: (cardIds: string[]) => Partial<Deck>;
+  showValidationModal: boolean;
+  setShowValidationModal: (show: boolean) => void;
 }
 
 const DeckContext = createContext<DeckContextType | undefined>(undefined);
@@ -65,6 +67,7 @@ export const DeckProvider: React.FC<DeckProviderProps> = ({ children, cards, onE
 
   const [deckName, setDeckName] = useState('My New Deck');
   const [deckDescription, setDeckDescription] = useState('');
+  const [showValidationModal, setShowValidationModal] = useState(false);
 
   // Calculate deck statistics
   const calculateDeckStats = (cardIds: string[]): Partial<Deck> => {
@@ -333,7 +336,7 @@ export const DeckProvider: React.FC<DeckProviderProps> = ({ children, cards, onE
     // Validate deck requirements
     const validationErrors = validateDeck();
     if (validationErrors.length > 0) {
-      onError('Deck Requirements Not Met', validationErrors.join('\n'), 'error');
+      setShowValidationModal(true);
       return;
     }
 
@@ -468,7 +471,9 @@ export const DeckProvider: React.FC<DeckProviderProps> = ({ children, cards, onE
     getCardCount,
     isCardDisabled,
     getDeckCardsWithCount,
-    calculateDeckStats
+    calculateDeckStats,
+    showValidationModal,
+    setShowValidationModal
   };
 
   return (

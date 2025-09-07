@@ -8,6 +8,7 @@ import FilterBar from '../components/FilterBar';
 import DeckStats from '../components/DeckStats';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorModal from '../components/ErrorModal';
+import DeckValidationModal from '../components/DeckValidationModal';
 
 const DeckBuilderContent: React.FC = () => {
   const {
@@ -50,7 +51,9 @@ const DeckBuilderContent: React.FC = () => {
     saveDeck,
     getCardCount,
     isCardDisabled,
-    getDeckCardsWithCount
+    getDeckCardsWithCount,
+    showValidationModal,
+    setShowValidationModal
   } = useDeck();
 
   const { errorModal, closeError } = useErrorModal();
@@ -453,6 +456,16 @@ const DeckBuilderContent: React.FC = () => {
         title={errorModal.title}
         message={errorModal.message}
         type={errorModal.type}
+      />
+
+      {/* Deck Validation Modal */}
+      <DeckValidationModal
+        isOpen={showValidationModal}
+        onClose={() => setShowValidationModal(false)}
+        regularCards={deck.card_ids.length}
+        battlefieldCards={specialCards.battlefield.length}
+        legendCards={specialCards.legend ? 1 : 0}
+        runeCards={specialCards.rune.length}
       />
     </div>
   );
