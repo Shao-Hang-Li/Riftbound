@@ -204,7 +204,6 @@ class DeckModel(BaseModel):
     description: Optional[str] = None
     card_ids: List[str] = Field(default_factory=list)
     deck_colors: List[CardColor] = Field(default_factory=list)
-    total_cost: int = Field(default=0, ge=0)
     average_cost: float = Field(default=0.0, ge=0.0)
     card_type_distribution: dict = Field(default_factory=dict)
     created_at: Optional[datetime] = None
@@ -220,15 +219,15 @@ async def startup_event():
         
         # Test database connection
         await db.command("ping")
-        print("✅ MongoDB connection successful")
+        print("MongoDB connection successful")
         
         # Create indexes
         await create_indexes()
         
-        print("✅ Backend startup completed successfully")
+        print("Backend startup completed successfully")
         
     except Exception as e:
-        print(f"⚠️ Warning during startup: {e}")
+        print(f"Warning during startup: {e}")
         print("Application will continue but some features may not work properly")
         # Don't crash the app - let it continue
 
@@ -240,29 +239,6 @@ def read_root():
         "cards_directory_exists": os.path.exists(cards_path)
     }
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint to verify database connectivity"""
-    try:
-        # Test database connection
-        await db.command("ping")
-        card_count = await cards_collection.count_documents({})
-        set_count = await sets_collection.count_documents({})
-        
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "cards_count": card_count,
-            "sets_count": set_count,
-            "timestamp": datetime.now().isoformat()
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "database": "disconnected",
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }
 
 # ===== SET MANAGEMENT ENDPOINTS =====
 

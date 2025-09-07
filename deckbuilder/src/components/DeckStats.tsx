@@ -19,19 +19,17 @@ const DeckStats: React.FC<DeckStatsProps> = ({
   return (
     <div className={statsClass}>
       <div className="stat">
-        <div className="stat-title">Total Cards</div>
+        <div className="stat-title">Regular Cards</div>
         <div className="stat-value">{deck.card_ids.length}</div>
-        <div className="stat-desc">/ 40 maximum</div>
+        <div className="stat-desc">/ 40 required</div>
       </div>
       
       {showCost && (
-        <>
-          <div className="stat">
-            <div className="stat-title">Total Cost</div>
-            <div className="stat-value">{deck.total_cost}</div>
-            <div className="stat-desc">Average: {deck.average_cost}</div>
-          </div>
-        </>
+        <div className="stat">
+          <div className="stat-title">Average Cost</div>
+          <div className="stat-value">{deck.average_cost}</div>
+          <div className="stat-desc">per card</div>
+        </div>
       )}
       
       {showColors && (

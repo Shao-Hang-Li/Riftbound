@@ -42,7 +42,6 @@ export const DeckProvider: React.FC<DeckProviderProps> = ({ children, cards, onE
     description: '',
     card_ids: [],
     deck_colors: [],
-    total_cost: 0,
     average_cost: 0,
     card_type_distribution: {
       Spell: 0,
@@ -76,7 +75,6 @@ export const DeckProvider: React.FC<DeckProviderProps> = ({ children, cards, onE
     if (deckCards.length === 0) {
       return {
         deck_colors: [],
-        total_cost: 0,
         average_cost: 0,
         card_type_distribution: {
           Spell: 0,
@@ -123,7 +121,6 @@ export const DeckProvider: React.FC<DeckProviderProps> = ({ children, cards, onE
 
     return {
       deck_colors: uniqueColors,
-      total_cost: totalCost,
       average_cost: Math.round(averageCost * 100) / 100,
       card_type_distribution: typeDistribution
     };
@@ -298,6 +295,34 @@ export const DeckProvider: React.FC<DeckProviderProps> = ({ children, cards, onE
     setDeck(newDeck);
   };
 
+  // Validate deck requirements
+  const validateDeck = () => {
+    const regularCards = deck.card_ids.length;
+    const battlefieldCards = specialCards.battlefield.length;
+    const legendCards = specialCards.legend ? 1 : 0;
+    const runeCards = specialCards.rune.length;
+
+    const errors = [];
+    
+    if (regularCards !== 40) {
+      errors.push(`You need exactly 40 regular cards (currently have ${regularCards})`);
+    }
+    
+    if (battlefieldCards !== 3) {
+      errors.push(`You need exactly 3 Battlefield cards (currently have ${battlefieldCards})`);
+    }
+    
+    if (legendCards !== 1) {
+      errors.push(`You need exactly 1 Legend card (currently have ${legendCards})`);
+    }
+    
+    if (runeCards !== 12) {
+      errors.push(`You need exactly 12 Rune cards (currently have ${runeCards})`);
+    }
+
+    return errors;
+  };
+
   // Save deck
   const saveDeck = async () => {
     if (!deckName.trim()) {
@@ -305,27 +330,13 @@ export const DeckProvider: React.FC<DeckProviderProps> = ({ children, cards, onE
       return;
     }
 
-    // Validate special card requirements
-    if (specialCards.battlefield.length !== 3) {
-      onError('Invalid Deck', 'You must have exactly 3 Battlefield cards.', 'error');
+    // Validate deck requirements
+    const validationErrors = validateDeck();
+    if (validationErrors.length > 0) {
+      onError('Deck Requirements Not Met', validationErrors.join('\n'), 'error');
       return;
     }
 
-    if (!specialCards.legend) {
-      onError('Invalid Deck', 'You must have exactly 1 Legend card.', 'error');
-      return;
-    }
-
-    // Rune cards are required (exactly 12)
-    if (specialCards.rune.length !== 12) {
-      onError('Invalid Deck', 'You must have exactly 12 Rune cards.', 'error');
-      return;
-    }
-
-    if (deck.card_ids.length === 0) {
-      onError('Empty Deck', 'Please add some cards to your deck', 'warning');
-      return;
-    }
 
     try {
       // Combine regular deck cards with special cards
@@ -333,7 +344,7 @@ export const DeckProvider: React.FC<DeckProviderProps> = ({ children, cards, onE
         ...deck.card_ids,
         ...specialCards.battlefield.map(c => c.card_id),
         ...specialCards.rune.map(c => c.card_id),
-        specialCards.legend.card_id
+        ...(specialCards.legend ? [specialCards.legend.card_id] : [])
       ];
 
       const response = await fetch('/decks', {
@@ -346,7 +357,6 @@ export const DeckProvider: React.FC<DeckProviderProps> = ({ children, cards, onE
           description: deckDescription,
           card_ids: allCardIds,
           deck_colors: deck.deck_colors,
-          total_cost: deck.total_cost,
           average_cost: deck.average_cost,
           card_type_distribution: deck.card_type_distribution
         }),
@@ -373,7 +383,6 @@ export const DeckProvider: React.FC<DeckProviderProps> = ({ children, cards, onE
       description: '',
       card_ids: [],
       deck_colors: [],
-      total_cost: 0,
       average_cost: 0,
       card_type_distribution: {
         Spell: 0,

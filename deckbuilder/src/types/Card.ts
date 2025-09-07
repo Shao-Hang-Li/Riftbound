@@ -27,7 +27,6 @@ export interface Deck {
   description?: string;
   card_ids: string[];
   deck_colors: CardColor[];
-  total_cost: number;
   average_cost: number;
   card_type_distribution: Record<CardType, number>;
   created_at?: string;

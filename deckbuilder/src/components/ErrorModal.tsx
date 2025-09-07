@@ -33,19 +33,19 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
   const getIcon = () => {
     switch (type) {
       case 'success':
-        return '✅';
+        return '\u2713'; 
       case 'warning':
-        return '⚠️';
+        return '\u26A0'; 
       case 'info':
-        return 'ℹ️';
+        return '\u2139'; 
       default:
-        return '❌';
+        return '\u2715'; 
     }
   };
 
   return (
     <div className="modal modal-open">
-      <div className="modal-box">
+      <div className={getModalStyle()}>
         <div className="flex items-center gap-3 mb-4">
           <span className="text-2xl">{getIcon()}</span>
           <h3 className="font-bold text-lg">{title}</h3>

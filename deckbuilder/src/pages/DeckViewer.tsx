@@ -206,9 +206,9 @@ const DeckViewerContent: React.FC = () => {
                         <div className="stat-desc">/ 12 cards</div>
                       </div>
                       <div className="stat">
-                        <div className="stat-title">Total Cost</div>
-                        <div className="stat-value">{selectedDeck.total_cost}</div>
-                        <div className="stat-desc">Average: {selectedDeck.average_cost}</div>
+                        <div className="stat-title">Average Cost</div>
+                        <div className="stat-value">{selectedDeck.average_cost}</div>
+                        <div className="stat-desc">per card</div>
                       </div>
                       <div className="stat">
                         <div className="stat-title">Colors</div>
