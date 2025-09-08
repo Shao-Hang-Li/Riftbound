@@ -2,8 +2,8 @@ import React from 'react';
 import { Card } from '../types';
 import { CardsProvider, useCards } from '../context/CardsContext';
 import { DeckProvider, useDeck } from '../context/DeckContext';
-import { useErrorModal } from '../hooks/useErrorModal';
 import { useCardHover } from '../hooks/useCardHover';
+import { useErrorModal } from '../hooks/useErrorModal';
 import FilterBar from '../components/FilterBar';
 import DeckStats from '../components/DeckStats';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -56,7 +56,6 @@ const DeckBuilderContent: React.FC = () => {
     setShowValidationModal
   } = useDeck();
 
-  const { errorModal, closeError } = useErrorModal();
   const { hoveredCard, handleCardHover, handleCardLeave } = useCardHover();
 
   const handleAddCard = async (card: Card) => {
@@ -449,15 +448,6 @@ const DeckBuilderContent: React.FC = () => {
         </div>
       )}
 
-      {/* Error Modal */}
-      <ErrorModal
-        isOpen={errorModal.isOpen}
-        onClose={closeError}
-        title={errorModal.title}
-        message={errorModal.message}
-        type={errorModal.type}
-      />
-
       {/* Deck Validation Modal */}
       <DeckValidationModal
         isOpen={showValidationModal}
@@ -481,11 +471,20 @@ const DeckBuilder: React.FC = () => {
 
 const DeckBuilderWithDeck: React.FC = () => {
   const { cards } = useCards();
-  const { showError } = useErrorModal();
+  const { errorModal, showError, closeError } = useErrorModal();
 
   return (
     <DeckProvider cards={cards} onError={showError}>
       <DeckBuilderContent />
+      
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={errorModal.isOpen}
+        onClose={closeError}
+        title={errorModal.title}
+        message={errorModal.message}
+        type={errorModal.type}
+      />
     </DeckProvider>
   );
 };

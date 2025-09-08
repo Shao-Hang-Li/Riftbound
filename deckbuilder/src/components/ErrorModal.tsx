@@ -18,22 +18,13 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
   if (!isOpen) return null;
 
   const getModalStyle = () => {
-    switch (type) {
-      case 'success':
-        return 'modal-box bg-success text-success-content';
-      case 'warning':
-        return 'modal-box bg-warning text-warning-content';
-      case 'info':
-        return 'modal-box bg-info text-info-content';
-      default:
-        return 'modal-box bg-error text-error-content';
-    }
+    return 'modal-box';
   };
 
   const getIcon = () => {
     switch (type) {
       case 'success':
-        return '\u2713'; 
+        return null; 
       case 'warning':
         return '\u26A0'; 
       case 'info':
@@ -45,12 +36,14 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
 
   return (
     <div className="modal modal-open">
-      <div className={getModalStyle()}>
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-2xl">{getIcon()}</span>
-          <h3 className="font-bold text-lg">{title}</h3>
-        </div>
-        <p className="py-4">{message}</p>
+      <div className={`${getModalStyle()} flex flex-col justify-center`}>
+        {title && (
+          <div className="flex items-center gap-3 mb-4">
+            {getIcon() && <span className="text-2xl">{getIcon()}</span>}
+            <h3 className="font-bold text-lg">{title}</h3>
+          </div>
+        )}
+        <p className="py-4 text-center text-xl font-medium">{message}</p>
         <div className="modal-action">
           <button className="btn btn-primary" onClick={onClose}>
             OK

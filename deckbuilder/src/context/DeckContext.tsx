@@ -367,7 +367,7 @@ export const DeckProvider: React.FC<DeckProviderProps> = ({ children, cards, onE
 
       if (response.ok) {
         await response.json();
-        onError('Success!', 'Deck saved successfully!', 'success');
+        onError('', 'Your deck has been saved successfully!', 'success');
         resetDeck();
       } else {
         const errorData = await response.json();
